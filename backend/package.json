@@ -1,0 +1,39 @@
+{
+  "name": "zyntraplus-api",
+  "version": "1.0.0",
+  "description": "ZyntraPlus REST API — Node.js + PostgreSQL",
+  "main": "src/server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node database/scripts/migrate.js && node src/server.js",
+    "dev": "node --watch src/server.js",
+    "db:check": "node database/scripts/db-check.js",
+    "db:migrate": "node database/scripts/migrate.js",
+    "db:seed": "node database/scripts/seed.js",
+    "test": "node --test tests/**/*.test.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "keywords": [
+    "zyntraplus",
+    "express",
+    "postgresql"
+  ],
+  "license": "UNLICENSED",
+  "dependencies": {
+    "@socket.io/redis-adapter": "^8.3.0",
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "express-rate-limit": "^8.5.2",
+    "firebase-admin": "^14.0.0",
+    "helmet": "^8.0.0",
+    "ioredis": "^5.6.1",
+    "jsonwebtoken": "^9.0.2",
+    "multer": "^1.4.5-lts.1",
+    "pg": "^8.13.1",
+    "socket.io": "^4.8.3"
+  }
+}
