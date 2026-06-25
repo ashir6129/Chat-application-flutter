@@ -464,7 +464,7 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> {
                               top: Radius.circular(6)),
                           child: Stack(
                             children: [
-                              Image.network(
+                              Image.network(headers: const {"ngrok-skip-browser-warning": "true"}, 
                                 item["image"],
                                 height: 95,
                                 width: double.infinity,
@@ -702,7 +702,7 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> {
                   // ── Thumbnail ─────────────────────────────────
                   ClipRRect(
                     borderRadius: BorderRadius.circular(6),
-                    child: Image.network(
+                    child: Image.network(headers: const {"ngrok-skip-browser-warning": "true"}, 
                       sponsoredAd["image"],
                       width: 110,
                       height: 110,
@@ -818,7 +818,7 @@ class _ListingCard extends StatelessWidget {
             borderRadius: const BorderRadius.vertical(top: Radius.circular(6)),
             child: Stack(
               children: [
-                Image.network(
+                Image.network(headers: const {"ngrok-skip-browser-warning": "true"}, 
                   item["image"],
                   height: 130,
                   width: double.infinity,

@@ -713,7 +713,7 @@ class _HomeSearchScreenState extends State<HomeSearchScreen>
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Expanded(
-                child: Image.network(
+                child: Image.network(headers: const {"ngrok-skip-browser-warning": "true"}, 
                   product.image,
                   width: double.infinity,
                   fit: BoxFit.cover,
@@ -777,7 +777,7 @@ class _HomeSearchScreenState extends State<HomeSearchScreen>
           child: Stack(
             fit: StackFit.expand,
             children: [
-              Image.network(
+              Image.network(headers: const {"ngrok-skip-browser-warning": "true"}, 
                 _reels[index],
                 fit: BoxFit.cover,
                 errorBuilder: (_, __, ___) => Container(
@@ -964,7 +964,7 @@ class _HomeSearchScreenState extends State<HomeSearchScreen>
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Image.network(
+                    Image.network(headers: const {"ngrok-skip-browser-warning": "true"}, 
                       product.image,
                       height: 110,
                       width: double.infinity,
@@ -1038,7 +1038,7 @@ class _HomeSearchScreenState extends State<HomeSearchScreen>
               child: Stack(
                 fit: StackFit.expand,
                 children: [
-                  Image.network(
+                  Image.network(headers: const {"ngrok-skip-browser-warning": "true"}, 
                     _reels[index],
                     fit: BoxFit.cover,
                     errorBuilder: (_, __, ___) => Container(

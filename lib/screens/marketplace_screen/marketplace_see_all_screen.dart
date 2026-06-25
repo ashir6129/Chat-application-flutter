@@ -188,7 +188,7 @@ class _MarketplaceSeeAllScreenState extends State<MarketplaceSeeAllScreen> {
                 borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
                 child: Stack(
                   children: [
-                    Image.network(
+                    Image.network(headers: const {"ngrok-skip-browser-warning": "true"}, 
                       item['image'] as String,
                       width: double.infinity,
                       height: double.infinity,

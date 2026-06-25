@@ -1,0 +1,1314 @@
+diff -ur Zyntraplus-frontend/lib/widgets/feed/feed_attachments.dart lib/widgets/feed/feed_attachments.dart
+--- Zyntraplus-frontend/lib/widgets/feed/feed_attachments.dart	2026-06-21 14:49:36.000000000 +0500
++++ lib/widgets/feed/feed_attachments.dart	2026-06-24 22:48:47.809786693 +0500
+@@ -1,221 +1,221 @@
+-import 'package:flutter/material.dart';
+-import 'package:iconsax/iconsax.dart';
+-import '../../core/app_colors.dart';
+-
+-/// Product card shown below post actions when user attached a product.
+-class FeedProductAttachmentCard extends StatelessWidget {
+-  final String name;
+-  final double price;
+-  final String imageUrl;
+-  final String currency;
+-  final int? stock;
+-  final VoidCallback? onBuyNow;
+-
+-  const FeedProductAttachmentCard({
+-    super.key,
+-    required this.name,
+-    required this.price,
+-    required this.imageUrl,
+-    this.currency = '₹',
+-    this.stock,
+-    this.onBuyNow,
+-  });
+-
+-  @override
+-  Widget build(BuildContext context) {
+-    final outOfStock = stock != null && stock == 0;
+-
+-    return Padding(
+-      padding: const EdgeInsets.fromLTRB(14, 0, 14, 12),
+-      child: Container(
+-        decoration: BoxDecoration(
+-          color: AppColors.secondaryBackground(context),
+-          borderRadius: BorderRadius.circular(12),
+-          border: Border.all(color: AppColors.borderLine(context), width: 0.5),
+-        ),
+-        child: Column(
+-          crossAxisAlignment: CrossAxisAlignment.start,
+-          children: [
+-            ClipRRect(
+-              borderRadius:
+-                  const BorderRadius.vertical(top: Radius.circular(12)),
+-              child: Image.network(
+-                imageUrl,
+-                width: double.infinity,
+-                height: 160,
+-                fit: BoxFit.cover,
+-                errorBuilder: (_, __, ___) => Container(
+-                  height: 160,
+-                  color: AppColors.secondaryBackground(context),
+-                  child: Icon(Iconsax.bag,
+-                      size: 36, color: AppColors.mutedText(context)),
+-                ),
+-              ),
+-            ),
+-            Padding(
+-              padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+-              child: Row(
+-                crossAxisAlignment: CrossAxisAlignment.start,
+-                children: [
+-                  Expanded(
+-                    child: Column(
+-                      crossAxisAlignment: CrossAxisAlignment.start,
+-                      children: [
+-                        Text(
+-                          name,
+-                          style: TextStyle(
+-                            fontSize: 14,
+-                            fontWeight: FontWeight.w600,
+-                            color: AppColors.primaryText(context),
+-                          ),
+-                          maxLines: 2,
+-                          overflow: TextOverflow.ellipsis,
+-                        ),
+-                        const SizedBox(height: 4),
+-                        Text(
+-                          '$currency${price.toStringAsFixed(2)}',
+-                          style: TextStyle(
+-                            fontSize: 16,
+-                            fontWeight: FontWeight.w700,
+-                            color: AppColors.buttonColor(context),
+-                          ),
+-                        ),
+-                      ],
+-                    ),
+-                  ),
+-                  const SizedBox(width: 12),
+-                  GestureDetector(
+-                    onTap: outOfStock ? null : onBuyNow,
+-                    child: Container(
+-                      padding: const EdgeInsets.symmetric(
+-                          horizontal: 16, vertical: 10),
+-                      decoration: BoxDecoration(
+-                        color: outOfStock
+-                            ? AppColors.mutedText(context)
+-                            : AppColors.buttonColor(context),
+-                        borderRadius: BorderRadius.circular(20),
+-                      ),
+-                      child: Text(
+-                        outOfStock ? 'Sold Out' : 'Buy Now',
+-                        style: const TextStyle(
+-                          color: Colors.white,
+-                          fontSize: 13,
+-                          fontWeight: FontWeight.w500,
+-                        ),
+-                      ),
+-                    ),
+-                  ),
+-                ],
+-              ),
+-            ),
+-          ],
+-        ),
+-      ),
+-    );
+-  }
+-}
+-
+-/// Sponsored / banner strip below post actions.
+-class FeedBannerAdCard extends StatelessWidget {
+-  final String title;
+-  final String subtitle;
+-  final String? imageUrl;
+-  final String ctaLabel;
+-
+-  const FeedBannerAdCard({
+-    super.key,
+-    required this.title,
+-    required this.subtitle,
+-    this.imageUrl,
+-    this.ctaLabel = 'Learn more',
+-  });
+-
+-  @override
+-  Widget build(BuildContext context) {
+-    return Padding(
+-      padding: const EdgeInsets.fromLTRB(14, 0, 14, 12),
+-      child: Container(
+-        decoration: BoxDecoration(
+-          gradient: LinearGradient(
+-            colors: [
+-              AppColors.buttonColor(context).withOpacity(0.15),
+-              AppColors.buttonColor(context).withOpacity(0.05),
+-            ],
+-          ),
+-          borderRadius: BorderRadius.circular(12),
+-          border: Border.all(
+-            color: AppColors.buttonColor(context).withOpacity(0.25),
+-          ),
+-        ),
+-        child: Row(
+-          children: [
+-            if (imageUrl != null)
+-              ClipRRect(
+-                borderRadius:
+-                    const BorderRadius.horizontal(left: Radius.circular(12)),
+-                child: Image.network(
+-                  imageUrl!,
+-                  width: 88,
+-                  height: 72,
+-                  fit: BoxFit.cover,
+-                  errorBuilder: (_, __, ___) => const SizedBox(
+-                    width: 88,
+-                    height: 72,
+-                  ),
+-                ),
+-              ),
+-            Expanded(
+-              child: Padding(
+-                padding: const EdgeInsets.all(12),
+-                child: Column(
+-                  crossAxisAlignment: CrossAxisAlignment.start,
+-                  children: [
+-                    Text(
+-                      'Sponsored',
+-                      style: TextStyle(
+-                        fontSize: 10,
+-                        fontWeight: FontWeight.w600,
+-                        color: AppColors.buttonColor(context),
+-                      ),
+-                    ),
+-                    const SizedBox(height: 2),
+-                    Text(
+-                      title,
+-                      style: TextStyle(
+-                        fontSize: 13,
+-                        fontWeight: FontWeight.w600,
+-                        color: AppColors.primaryText(context),
+-                      ),
+-                      maxLines: 1,
+-                      overflow: TextOverflow.ellipsis,
+-                    ),
+-                    Text(
+-                      subtitle,
+-                      style: TextStyle(
+-                        fontSize: 11,
+-                        color: AppColors.secondaryText(context),
+-                      ),
+-                      maxLines: 1,
+-                      overflow: TextOverflow.ellipsis,
+-                    ),
+-                  ],
+-                ),
+-              ),
+-            ),
+-            Padding(
+-              padding: const EdgeInsets.only(right: 12),
+-              child: Text(
+-                ctaLabel,
+-                style: TextStyle(
+-                  fontSize: 12,
+-                  fontWeight: FontWeight.w600,
+-                  color: AppColors.buttonColor(context),
+-                ),
+-              ),
+-            ),
+-          ],
+-        ),
+-      ),
+-    );
+-  }
+-}
++import 'package:flutter/material.dart';
++import 'package:iconsax/iconsax.dart';
++import '../../core/app_colors.dart';
++
++/// Product card shown below post actions when user attached a product.
++class FeedProductAttachmentCard extends StatelessWidget {
++  final String name;
++  final double price;
++  final String imageUrl;
++  final String currency;
++  final int? stock;
++  final VoidCallback? onBuyNow;
++
++  const FeedProductAttachmentCard({
++    super.key,
++    required this.name,
++    required this.price,
++    required this.imageUrl,
++    this.currency = '₹',
++    this.stock,
++    this.onBuyNow,
++  });
++
++  @override
++  Widget build(BuildContext context) {
++    final outOfStock = stock != null && stock == 0;
++
++    return Padding(
++      padding: const EdgeInsets.fromLTRB(14, 0, 14, 12),
++      child: Container(
++        decoration: BoxDecoration(
++          color: AppColors.secondaryBackground(context),
++          borderRadius: BorderRadius.circular(12),
++          border: Border.all(color: AppColors.borderLine(context), width: 0.5),
++        ),
++        child: Column(
++          crossAxisAlignment: CrossAxisAlignment.start,
++          children: [
++            ClipRRect(
++              borderRadius:
++                  const BorderRadius.vertical(top: Radius.circular(12)),
++              child: Image.network(headers: const {"ngrok-skip-browser-warning": "true"}, 
++                imageUrl,
++                width: double.infinity,
++                height: 160,
++                fit: BoxFit.cover,
++                errorBuilder: (_, __, ___) => Container(
++                  height: 160,
++                  color: AppColors.secondaryBackground(context),
++                  child: Icon(Iconsax.bag,
++                      size: 36, color: AppColors.mutedText(context)),
++                ),
++              ),
++            ),
++            Padding(
++              padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
++              child: Row(
++                crossAxisAlignment: CrossAxisAlignment.start,
++                children: [
++                  Expanded(
++                    child: Column(
++                      crossAxisAlignment: CrossAxisAlignment.start,
++                      children: [
++                        Text(
++                          name,
++                          style: TextStyle(
++                            fontSize: 14,
++                            fontWeight: FontWeight.w600,
++                            color: AppColors.primaryText(context),
++                          ),
++                          maxLines: 2,
++                          overflow: TextOverflow.ellipsis,
++                        ),
++                        const SizedBox(height: 4),
++                        Text(
++                          '$currency${price.toStringAsFixed(2)}',
++                          style: TextStyle(
++                            fontSize: 16,
++                            fontWeight: FontWeight.w700,
++                            color: AppColors.buttonColor(context),
++                          ),
++                        ),
++                      ],
++                    ),
++                  ),
++                  const SizedBox(width: 12),
++                  GestureDetector(
++                    onTap: outOfStock ? null : onBuyNow,
++                    child: Container(
++                      padding: const EdgeInsets.symmetric(
++                          horizontal: 16, vertical: 10),
++                      decoration: BoxDecoration(
++                        color: outOfStock
++                            ? AppColors.mutedText(context)
++                            : AppColors.buttonColor(context),
++                        borderRadius: BorderRadius.circular(20),
++                      ),
++                      child: Text(
++                        outOfStock ? 'Sold Out' : 'Buy Now',
++                        style: const TextStyle(
++                          color: Colors.white,
++                          fontSize: 13,
++                          fontWeight: FontWeight.w500,
++                        ),
++                      ),
++                    ),
++                  ),
++                ],
++              ),
++            ),
++          ],
++        ),
++      ),
++    );
++  }
++}
++
++/// Sponsored / banner strip below post actions.
++class FeedBannerAdCard extends StatelessWidget {
++  final String title;
++  final String subtitle;
++  final String? imageUrl;
++  final String ctaLabel;
++
++  const FeedBannerAdCard({
++    super.key,
++    required this.title,
++    required this.subtitle,
++    this.imageUrl,
++    this.ctaLabel = 'Learn more',
++  });
++
++  @override
++  Widget build(BuildContext context) {
++    return Padding(
++      padding: const EdgeInsets.fromLTRB(14, 0, 14, 12),
++      child: Container(
++        decoration: BoxDecoration(
++          gradient: LinearGradient(
++            colors: [
++              AppColors.buttonColor(context).withOpacity(0.15),
++              AppColors.buttonColor(context).withOpacity(0.05),
++            ],
++          ),
++          borderRadius: BorderRadius.circular(12),
++          border: Border.all(
++            color: AppColors.buttonColor(context).withOpacity(0.25),
++          ),
++        ),
++        child: Row(
++          children: [
++            if (imageUrl != null)
++              ClipRRect(
++                borderRadius:
++                    const BorderRadius.horizontal(left: Radius.circular(12)),
++                child: Image.network(headers: const {"ngrok-skip-browser-warning": "true"}, 
++                  imageUrl!,
++                  width: 88,
++                  height: 72,
++                  fit: BoxFit.cover,
++                  errorBuilder: (_, __, ___) => const SizedBox(
++                    width: 88,
++                    height: 72,
++                  ),
++                ),
++              ),
++            Expanded(
++              child: Padding(
++                padding: const EdgeInsets.all(12),
++                child: Column(
++                  crossAxisAlignment: CrossAxisAlignment.start,
++                  children: [
++                    Text(
++                      'Sponsored',
++                      style: TextStyle(
++                        fontSize: 10,
++                        fontWeight: FontWeight.w600,
++                        color: AppColors.buttonColor(context),
++                      ),
++                    ),
++                    const SizedBox(height: 2),
++                    Text(
++                      title,
++                      style: TextStyle(
++                        fontSize: 13,
++                        fontWeight: FontWeight.w600,
++                        color: AppColors.primaryText(context),
++                      ),
++                      maxLines: 1,
++                      overflow: TextOverflow.ellipsis,
++                    ),
++                    Text(
++                      subtitle,
++                      style: TextStyle(
++                        fontSize: 11,
++                        color: AppColors.secondaryText(context),
++                      ),
++                      maxLines: 1,
++                      overflow: TextOverflow.ellipsis,
++                    ),
++                  ],
++                ),
++              ),
++            ),
++            Padding(
++              padding: const EdgeInsets.only(right: 12),
++              child: Text(
++                ctaLabel,
++                style: TextStyle(
++                  fontSize: 12,
++                  fontWeight: FontWeight.w600,
++                  color: AppColors.buttonColor(context),
++                ),
++              ),
++            ),
++          ],
++        ),
++      ),
++    );
++  }
++}
+diff -ur Zyntraplus-frontend/lib/widgets/feed/feed_caption_text.dart lib/widgets/feed/feed_caption_text.dart
+--- Zyntraplus-frontend/lib/widgets/feed/feed_caption_text.dart	2026-06-21 19:54:38.000000000 +0500
++++ lib/widgets/feed/feed_caption_text.dart	2026-06-24 11:18:11.551747788 +0500
+@@ -48,25 +48,6 @@
+     if (text.isEmpty) return const SizedBox.shrink();
+ 
+     final accent = AppColors.buttonColor(context);
+-    final isShort = text.length < FeedCaptionText.shortMaxLength;
+-
+-    if (isShort) {
+-      return Padding(
+-        padding: widget.padding,
+-        child: SizedBox(
+-          width: double.infinity,
+-          child: Text(
+-            text.toUpperCase(),
+-            textAlign: TextAlign.center,
+-            style: _bodyStyle(context).copyWith(
+-              fontWeight: FontWeight.w600,
+-              letterSpacing: 0.4,
+-            ),
+-          ),
+-        ),
+-      );
+-    }
+-
+     final needsReadMore = _needsReadMore(text);
+ 
+     return Padding(
+diff -ur Zyntraplus-frontend/lib/widgets/feed/feed_image_grid.dart lib/widgets/feed/feed_image_grid.dart
+--- Zyntraplus-frontend/lib/widgets/feed/feed_image_grid.dart	2026-06-21 14:58:24.000000000 +0500
++++ lib/widgets/feed/feed_image_grid.dart	2026-06-25 01:21:12.053389222 +0500
+@@ -7,8 +7,7 @@
+ import 'feed_photo_viewer.dart';
+ import 'feed_video_preview.dart';
+ 
+-/// Portrait multi-image layouts — bounded to [feedMediaHeight] like APK post media.
+-class FeedImageGrid extends StatelessWidget {
++class FeedImageGrid extends StatefulWidget {
+   final List<String> images;
+   final FeedPhotoViewerPost? postInfo;
+   final List<MediaEditSettings> mediaMeta;
+@@ -20,176 +19,44 @@
+     this.mediaMeta = const [],
+   });
+ 
+-  /// Same bold height as [ImageWidget] / [VideoWidget] in post_widget.dart.
+-  static const double feedMediaHeight = 280;
+-
+-  static const double _gap = 4;
++  @override
++  State<FeedImageGrid> createState() => _FeedImageGridState();
++}
+ 
++class _FeedImageGridState extends State<FeedImageGrid> {
+   void _openViewer(BuildContext context, int index) {
+     Navigator.push(
+       context,
+       MaterialPageRoute(
+         builder: (_) => FeedPhotoViewer(
+-          photos: images,
++          photos: widget.images,
+           initialIndex: index,
+-          post: postInfo,
++          post: widget.postInfo,
+         ),
+       ),
+     );
+   }
+ 
+-  @override
+-  Widget build(BuildContext context) {
+-    if (images.isEmpty) return const SizedBox.shrink();
+-
+-    return SizedBox(
+-      width: double.infinity,
+-      height: feedMediaHeight,
+-      child: ClipRect(
+-        child: _buildLayout(context, images.length),
+-      ),
+-    );
+-  }
++  Widget _buildImageCell(BuildContext context, int index, {String? overlayText}) {
++    final url = widget.images[index];
++    final settings = index < widget.mediaMeta.length
++        ? widget.mediaMeta[index]
++        : const MediaEditSettings();
+ 
+-  Widget _buildLayout(BuildContext context, int count) {
+-    return switch (count) {
+-      1 => _cell(context, 0),
+-      2 => _twoImages(context),
+-      3 => _threeImages(context),
+-      4 => _fourImages(context),
+-      _ => _fivePlusImages(context, count),
+-    };
+-  }
+-
+-  Widget _twoImages(BuildContext context) {
+-    return Row(
+-      crossAxisAlignment: CrossAxisAlignment.stretch,
+-      children: [
+-        Expanded(child: _cell(context, 0)),
+-        const SizedBox(width: _gap),
+-        Expanded(child: _cell(context, 1)),
+-      ],
+-    );
+-  }
+-
+-  Widget _threeImages(BuildContext context) {
+-    return Row(
+-      crossAxisAlignment: CrossAxisAlignment.stretch,
+-      children: [
+-        Expanded(child: _cell(context, 0)),
+-        const SizedBox(width: _gap),
+-        Expanded(
+-          child: Column(
+-            crossAxisAlignment: CrossAxisAlignment.stretch,
+-            children: [
+-              Expanded(child: _cell(context, 1)),
+-              const SizedBox(height: _gap),
+-              Expanded(child: _cell(context, 2)),
+-            ],
+-          ),
+-        ),
+-      ],
+-    );
+-  }
+-
+-  Widget _fourImages(BuildContext context) {
+-    return Row(
+-      crossAxisAlignment: CrossAxisAlignment.stretch,
+-      children: [
+-        Expanded(child: _cell(context, 0)),
+-        const SizedBox(width: _gap),
+-        Expanded(
+-          child: Column(
+-            crossAxisAlignment: CrossAxisAlignment.stretch,
+-            children: [
+-              Expanded(child: _cell(context, 1)),
+-              const SizedBox(height: _gap),
+-              Expanded(child: _cell(context, 2)),
+-              const SizedBox(height: _gap),
+-              Expanded(child: _cell(context, 3)),
+-            ],
+-          ),
+-        ),
+-      ],
+-    );
+-  }
+-
+-  Widget _fivePlusImages(BuildContext context, int count) {
+-    final overlay = count > 5 ? '+${count - 5}' : null;
+-
+-    return Column(
+-      crossAxisAlignment: CrossAxisAlignment.stretch,
+-      children: [
+-        Expanded(
+-          flex: 2,
+-          child: Row(
+-            crossAxisAlignment: CrossAxisAlignment.stretch,
+-            children: [
+-              Expanded(child: _cell(context, 0)),
+-              const SizedBox(width: _gap),
+-              Expanded(child: _cell(context, 1)),
+-            ],
+-          ),
+-        ),
+-        const SizedBox(height: _gap),
+-        Expanded(
+-          flex: 3,
+-          child: Row(
+-            crossAxisAlignment: CrossAxisAlignment.stretch,
+-            children: [
+-              Expanded(child: _cell(context, 2)),
+-              const SizedBox(width: _gap),
+-              Expanded(child: _cell(context, 3)),
+-              const SizedBox(width: _gap),
+-              Expanded(child: _cell(context, 4, overlay: overlay)),
+-            ],
+-          ),
+-        ),
+-      ],
+-    );
+-  }
+-
+-  Widget _cell(BuildContext context, int index, {String? overlay}) {
+-    final settings = index < mediaMeta.length ? mediaMeta[index] : const MediaEditSettings();
+-    return _FeedMediaCell(
+-      url: images[index],
+-      onTap: () => _openViewer(context, index),
+-      overlay: overlay,
+-      editSettings: settings,
+-    );
+-  }
+-}
+-
+-class _FeedMediaCell extends StatelessWidget {
+-  final String url;
+-  final VoidCallback onTap;
+-  final String? overlay;
+-  final MediaEditSettings editSettings;
+-
+-  const _FeedMediaCell({
+-    required this.url,
+-    required this.onTap,
+-    this.overlay,
+-    this.editSettings = const MediaEditSettings(),
+-  });
+-
+-  @override
+-  Widget build(BuildContext context) {
+     return GestureDetector(
+-      onTap: onTap,
++      onTap: () => _openViewer(context, index),
+       behavior: HitTestBehavior.opaque,
+       child: ColoredBox(
+         color: AppColors.secondaryBackground(context),
+         child: Stack(
+           fit: StackFit.expand,
+-          clipBehavior: Clip.hardEdge,
+           children: [
+             if (MediaUrlUtils.isVideoUrl(url))
+-              FeedVideoPreview(videoUrl: url, editSettings: editSettings)
++              FeedVideoPreview(videoUrl: url, editSettings: settings)
+             else
+               ColorFiltered(
+-                colorFilter: editSettings.hasEffect
+-                    ? ImageFilterUtils.settingsToColorFilter(editSettings)
++                colorFilter: settings.hasEffect
++                    ? ImageFilterUtils.settingsToColorFilter(settings)
+                     : const ColorFilter.mode(Colors.transparent, BlendMode.dst),
+                 child: appCachedImage(
+                   url,
+@@ -198,17 +65,16 @@
+                   height: double.infinity,
+                 ),
+               ),
+-            if (overlay != null)
+-              ColoredBox(
+-                color: Colors.black54,
+-                child: Center(
+-                  child: Text(
+-                    overlay!,
+-                    style: const TextStyle(
+-                      color: Colors.white,
+-                      fontSize: 20,
+-                      fontWeight: FontWeight.w700,
+-                    ),
++            if (overlayText != null)
++              Container(
++                color: Colors.black.withOpacity(0.55),
++                alignment: Alignment.center,
++                child: Text(
++                  overlayText,
++                  style: const TextStyle(
++                    color: Colors.white,
++                    fontSize: 24,
++                    fontWeight: FontWeight.w700,
+                   ),
+                 ),
+               ),
+@@ -217,4 +83,102 @@
+       ),
+     );
+   }
++
++  @override
++  Widget build(BuildContext context) {
++    final count = widget.images.length;
++    if (count == 0) return const SizedBox.shrink();
++
++    if (count == 1) {
++      final settings = widget.mediaMeta.isNotEmpty ? widget.mediaMeta[0] : const MediaEditSettings();
++      return GestureDetector(
++        onTap: () => _openViewer(context, 0),
++        behavior: HitTestBehavior.opaque,
++        child: ColoredBox(
++          color: AppColors.secondaryBackground(context),
++          child: ColorFiltered(
++            colorFilter: settings.hasEffect
++                ? ImageFilterUtils.settingsToColorFilter(settings)
++                : const ColorFilter.mode(Colors.transparent, BlendMode.dst),
++            child: appCachedImage(
++              widget.images[0],
++              fit: BoxFit.fitWidth,
++              width: double.infinity,
++            ),
++          ),
++        ),
++      );
++    }
++
++    if (count == 2) {
++      return AspectRatio(
++        aspectRatio: 1.5,
++        child: Row(
++          children: [
++            Expanded(child: _buildImageCell(context, 0)),
++            const SizedBox(width: 2),
++            Expanded(child: _buildImageCell(context, 1)),
++          ],
++        ),
++      );
++    }
++
++    if (count == 3) {
++      return AspectRatio(
++        aspectRatio: 1.0,
++        child: Row(
++          children: [
++            Expanded(child: _buildImageCell(context, 0)),
++            const SizedBox(width: 2),
++            Expanded(
++              child: Column(
++                children: [
++                  Expanded(child: _buildImageCell(context, 1)),
++                  const SizedBox(height: 2),
++                  Expanded(child: _buildImageCell(context, 2)),
++                ],
++              ),
++            ),
++          ],
++        ),
++      );
++    }
++
++    // 4 or more images
++    final hasOverlay = count > 4;
++    final remainingCount = count - 3; // e.g. 5 images -> shows +2 on the 4th box
++
++    return AspectRatio(
++      aspectRatio: 1.0,
++      child: Column(
++        children: [
++          Expanded(
++            child: Row(
++              children: [
++                Expanded(child: _buildImageCell(context, 0)),
++                const SizedBox(width: 2),
++                Expanded(child: _buildImageCell(context, 1)),
++              ],
++            ),
++          ),
++          const SizedBox(height: 2),
++          Expanded(
++            child: Row(
++              children: [
++                Expanded(child: _buildImageCell(context, 2)),
++                const SizedBox(width: 2),
++                Expanded(
++                  child: _buildImageCell(
++                    context,
++                    3,
++                    overlayText: hasOverlay ? '+$remainingCount' : null,
++                  ),
++                ),
++              ],
++            ),
++          ),
++        ],
++      ),
++    );
++  }
+ }
+diff -ur Zyntraplus-frontend/lib/widgets/feed/feed_photo_viewer.dart lib/widgets/feed/feed_photo_viewer.dart
+--- Zyntraplus-frontend/lib/widgets/feed/feed_photo_viewer.dart	2026-06-13 16:46:48.000000000 +0500
++++ lib/widgets/feed/feed_photo_viewer.dart	2026-06-24 22:48:47.808261302 +0500
+@@ -167,7 +167,7 @@
+                   return InteractiveViewer(
+                     minScale: 1.0,
+                     maxScale: 3.5,
+-                    child: Image.network(
++                    child: Image.network(headers: const {"ngrok-skip-browser-warning": "true"}, 
+                       widget.photos[index],
+                       width: double.infinity,
+                       height: double.infinity,
+@@ -314,7 +314,7 @@
+         children: [
+           ClipRRect(
+             borderRadius: BorderRadius.circular(8),
+-            child: Image.network(
++            child: Image.network(headers: const {"ngrok-skip-browser-warning": "true"}, 
+               product.imageUrl,
+               width: 52,
+               height: 52,
+diff -ur Zyntraplus-frontend/lib/widgets/feed/feed_user_avatar.dart lib/widgets/feed/feed_user_avatar.dart
+--- Zyntraplus-frontend/lib/widgets/feed/feed_user_avatar.dart	2026-06-21 19:53:58.000000000 +0500
++++ lib/widgets/feed/feed_user_avatar.dart	2026-06-25 00:14:32.292986486 +0500
+@@ -63,33 +63,15 @@
+   }
+ 
+   Widget _placeholder(BuildContext context, Border? border) {
+-    if (!showBorder) {
+-      return Container(
+-        width: size,
+-        height: size,
+-        decoration: BoxDecoration(
+-          shape: BoxShape.circle,
+-          color: accentColor,
+-        ),
+-        alignment: Alignment.center,
+-        child: Text(
+-          _initial,
+-          style: TextStyle(
+-            color: Colors.white,
+-            fontSize: size * 0.42,
+-            fontWeight: FontWeight.w700,
+-            height: 1,
+-          ),
+-        ),
+-      );
+-    }
++    final ringColor = borderColor ?? accentColor.withValues(alpha: 0.55);
++    final effectiveBorder = border ?? Border.all(color: ringColor, width: 1.5);
+ 
+     return Container(
+       width: size,
+       height: size,
+       decoration: BoxDecoration(
+         shape: BoxShape.circle,
+-        border: border,
++        border: effectiveBorder,
+         color: AppColors.composerBackground(context),
+       ),
+       alignment: Alignment.center,
+diff -ur Zyntraplus-frontend/lib/widgets/feed/post_widget.dart lib/widgets/feed/post_widget.dart
+--- Zyntraplus-frontend/lib/widgets/feed/post_widget.dart	2026-06-21 14:58:40.000000000 +0500
++++ lib/widgets/feed/post_widget.dart	2026-06-24 22:48:47.811341871 +0500
+@@ -308,7 +308,7 @@
+             _Caption(authorName: post.authorName, caption: post.caption),
+ 
+           if (post.imagePath != null)
+-            Image.network(
++            Image.network(headers: const {"ngrok-skip-browser-warning": "true"}, 
+               post.imagePath!,
+               width: double.infinity,
+               height: 280,
+@@ -390,7 +390,7 @@
+               alignment: Alignment.center,
+               children: [
+                 post.thumbnailPath != null
+-                    ? Image.network(
++                    ? Image.network(headers: const {"ngrok-skip-browser-warning": "true"}, 
+                   post.thumbnailPath!,
+                   width: double.infinity,
+                   height: 280,
+@@ -524,7 +524,7 @@
+                     borderRadius: const BorderRadius.vertical(
+                         top: Radius.circular(12)),
+                     child: post.productImagePath != null
+-                        ? Image.network(
++                        ? Image.network(headers: const {"ngrok-skip-browser-warning": "true"}, 
+                       post.productImagePath!,
+                       width: double.infinity,
+                       height: 220,
+diff -ur Zyntraplus-frontend/lib/widgets/feed/reel_product_overlay.dart lib/widgets/feed/reel_product_overlay.dart
+--- Zyntraplus-frontend/lib/widgets/feed/reel_product_overlay.dart	2026-06-21 14:49:36.000000000 +0500
++++ lib/widgets/feed/reel_product_overlay.dart	2026-06-24 22:48:47.810514293 +0500
+@@ -1,180 +1,180 @@
+-import 'package:flutter/material.dart';
+-import 'package:iconsax/iconsax.dart';
+-
+-/// Product card or banner ad overlay at bottom of reel feed.
+-class ReelProductOverlay extends StatelessWidget {
+-  final String? productName;
+-  final String? productPrice;
+-  final String? productImage;
+-  final String? earnAmount;
+-  final String? bannerTitle;
+-  final String? bannerSubtitle;
+-  final String? bannerImage;
+-  final VoidCallback? onBuyNow;
+-  final VoidCallback? onBannerTap;
+-
+-  const ReelProductOverlay.product({
+-    super.key,
+-    required this.productName,
+-    required this.productPrice,
+-    required this.productImage,
+-    this.earnAmount,
+-    this.onBuyNow,
+-  })  : bannerTitle = null,
+-        bannerSubtitle = null,
+-        bannerImage = null,
+-        onBannerTap = null;
+-
+-  const ReelProductOverlay.banner({
+-    super.key,
+-    required this.bannerTitle,
+-    required this.bannerSubtitle,
+-    this.bannerImage,
+-    this.onBannerTap,
+-  })  : productName = null,
+-        productPrice = null,
+-        productImage = null,
+-        earnAmount = null,
+-        onBuyNow = null;
+-
+-  bool get hasProduct => productName != null;
+-
+-  @override
+-  Widget build(BuildContext context) {
+-    return GestureDetector(
+-      onTap: hasProduct ? onBuyNow : onBannerTap,
+-      child: Container(
+-        margin: const EdgeInsets.symmetric(horizontal: 12),
+-        padding: const EdgeInsets.all(10),
+-        decoration: BoxDecoration(
+-          color: Colors.black.withOpacity(0.55),
+-          borderRadius: BorderRadius.circular(12),
+-          border: Border.all(color: Colors.white12),
+-        ),
+-        child: hasProduct ? _productRow() : _bannerRow(),
+-      ),
+-    );
+-  }
+-
+-  Widget _productRow() {
+-    return Row(
+-      children: [
+-        ClipRRect(
+-          borderRadius: BorderRadius.circular(8),
+-          child: Image.network(
+-            productImage!,
+-            width: 48,
+-            height: 48,
+-            fit: BoxFit.cover,
+-            errorBuilder: (_, __, ___) => Container(
+-              width: 48,
+-              height: 48,
+-              color: Colors.white12,
+-              child: const Icon(Iconsax.bag, color: Colors.white54, size: 22),
+-            ),
+-          ),
+-        ),
+-        const SizedBox(width: 10),
+-        Expanded(
+-          child: Column(
+-            crossAxisAlignment: CrossAxisAlignment.start,
+-            children: [
+-              Text(
+-                productName!,
+-                maxLines: 1,
+-                overflow: TextOverflow.ellipsis,
+-                style: const TextStyle(
+-                  color: Colors.white,
+-                  fontSize: 13,
+-                  fontWeight: FontWeight.w600,
+-                ),
+-              ),
+-              Text(
+-                productPrice!,
+-                style: const TextStyle(
+-                  color: Colors.white,
+-                  fontSize: 14,
+-                  fontWeight: FontWeight.w700,
+-                ),
+-              ),
+-              if (earnAmount != null)
+-                Text(
+-                  'Earn $earnAmount',
+-                  style: const TextStyle(
+-                    color: Color(0xFF43A047),
+-                    fontSize: 11,
+-                    fontWeight: FontWeight.w600,
+-                  ),
+-                ),
+-            ],
+-          ),
+-        ),
+-        Container(
+-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+-          decoration: BoxDecoration(
+-            color: Colors.white,
+-            borderRadius: BorderRadius.circular(20),
+-          ),
+-          child: const Text(
+-            'Buy Now',
+-            style: TextStyle(
+-              color: Colors.black,
+-              fontSize: 12,
+-              fontWeight: FontWeight.w700,
+-            ),
+-          ),
+-        ),
+-      ],
+-    );
+-  }
+-
+-  Widget _bannerRow() {
+-    return Row(
+-      children: [
+-        if (bannerImage != null)
+-          ClipRRect(
+-            borderRadius: BorderRadius.circular(8),
+-            child: Image.network(
+-              bannerImage!,
+-              width: 48,
+-              height: 48,
+-              fit: BoxFit.cover,
+-            ),
+-          ),
+-        if (bannerImage != null) const SizedBox(width: 10),
+-        Expanded(
+-          child: Column(
+-            crossAxisAlignment: CrossAxisAlignment.start,
+-            children: [
+-              const Text(
+-                'Sponsored',
+-                style: TextStyle(
+-                  color: Color(0xFF43A047),
+-                  fontSize: 10,
+-                  fontWeight: FontWeight.w600,
+-                ),
+-              ),
+-              Text(
+-                bannerTitle ?? '',
+-                maxLines: 1,
+-                overflow: TextOverflow.ellipsis,
+-                style: const TextStyle(
+-                  color: Colors.white,
+-                  fontSize: 13,
+-                  fontWeight: FontWeight.w600,
+-                ),
+-              ),
+-              Text(
+-                bannerSubtitle ?? '',
+-                maxLines: 1,
+-                overflow: TextOverflow.ellipsis,
+-                style: const TextStyle(color: Colors.white60, fontSize: 11),
+-              ),
+-            ],
+-          ),
+-        ),
+-        const Icon(Iconsax.arrow_right_3, color: Colors.white54, size: 18),
+-      ],
+-    );
+-  }
+-}
++import 'package:flutter/material.dart';
++import 'package:iconsax/iconsax.dart';
++
++/// Product card or banner ad overlay at bottom of reel feed.
++class ReelProductOverlay extends StatelessWidget {
++  final String? productName;
++  final String? productPrice;
++  final String? productImage;
++  final String? earnAmount;
++  final String? bannerTitle;
++  final String? bannerSubtitle;
++  final String? bannerImage;
++  final VoidCallback? onBuyNow;
++  final VoidCallback? onBannerTap;
++
++  const ReelProductOverlay.product({
++    super.key,
++    required this.productName,
++    required this.productPrice,
++    required this.productImage,
++    this.earnAmount,
++    this.onBuyNow,
++  })  : bannerTitle = null,
++        bannerSubtitle = null,
++        bannerImage = null,
++        onBannerTap = null;
++
++  const ReelProductOverlay.banner({
++    super.key,
++    required this.bannerTitle,
++    required this.bannerSubtitle,
++    this.bannerImage,
++    this.onBannerTap,
++  })  : productName = null,
++        productPrice = null,
++        productImage = null,
++        earnAmount = null,
++        onBuyNow = null;
++
++  bool get hasProduct => productName != null;
++
++  @override
++  Widget build(BuildContext context) {
++    return GestureDetector(
++      onTap: hasProduct ? onBuyNow : onBannerTap,
++      child: Container(
++        margin: const EdgeInsets.symmetric(horizontal: 12),
++        padding: const EdgeInsets.all(10),
++        decoration: BoxDecoration(
++          color: Colors.black.withOpacity(0.55),
++          borderRadius: BorderRadius.circular(12),
++          border: Border.all(color: Colors.white12),
++        ),
++        child: hasProduct ? _productRow() : _bannerRow(),
++      ),
++    );
++  }
++
++  Widget _productRow() {
++    return Row(
++      children: [
++        ClipRRect(
++          borderRadius: BorderRadius.circular(8),
++          child: Image.network(headers: const {"ngrok-skip-browser-warning": "true"}, 
++            productImage!,
++            width: 48,
++            height: 48,
++            fit: BoxFit.cover,
++            errorBuilder: (_, __, ___) => Container(
++              width: 48,
++              height: 48,
++              color: Colors.white12,
++              child: const Icon(Iconsax.bag, color: Colors.white54, size: 22),
++            ),
++          ),
++        ),
++        const SizedBox(width: 10),
++        Expanded(
++          child: Column(
++            crossAxisAlignment: CrossAxisAlignment.start,
++            children: [
++              Text(
++                productName!,
++                maxLines: 1,
++                overflow: TextOverflow.ellipsis,
++                style: const TextStyle(
++                  color: Colors.white,
++                  fontSize: 13,
++                  fontWeight: FontWeight.w600,
++                ),
++              ),
++              Text(
++                productPrice!,
++                style: const TextStyle(
++                  color: Colors.white,
++                  fontSize: 14,
++                  fontWeight: FontWeight.w700,
++                ),
++              ),
++              if (earnAmount != null)
++                Text(
++                  'Earn $earnAmount',
++                  style: const TextStyle(
++                    color: Color(0xFF43A047),
++                    fontSize: 11,
++                    fontWeight: FontWeight.w600,
++                  ),
++                ),
++            ],
++          ),
++        ),
++        Container(
++          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
++          decoration: BoxDecoration(
++            color: Colors.white,
++            borderRadius: BorderRadius.circular(20),
++          ),
++          child: const Text(
++            'Buy Now',
++            style: TextStyle(
++              color: Colors.black,
++              fontSize: 12,
++              fontWeight: FontWeight.w700,
++            ),
++          ),
++        ),
++      ],
++    );
++  }
++
++  Widget _bannerRow() {
++    return Row(
++      children: [
++        if (bannerImage != null)
++          ClipRRect(
++            borderRadius: BorderRadius.circular(8),
++            child: Image.network(headers: const {"ngrok-skip-browser-warning": "true"}, 
++              bannerImage!,
++              width: 48,
++              height: 48,
++              fit: BoxFit.cover,
++            ),
++          ),
++        if (bannerImage != null) const SizedBox(width: 10),
++        Expanded(
++          child: Column(
++            crossAxisAlignment: CrossAxisAlignment.start,
++            children: [
++              const Text(
++                'Sponsored',
++                style: TextStyle(
++                  color: Color(0xFF43A047),
++                  fontSize: 10,
++                  fontWeight: FontWeight.w600,
++                ),
++              ),
++              Text(
++                bannerTitle ?? '',
++                maxLines: 1,
++                overflow: TextOverflow.ellipsis,
++                style: const TextStyle(
++                  color: Colors.white,
++                  fontSize: 13,
++                  fontWeight: FontWeight.w600,
++                ),
++              ),
++              Text(
++                bannerSubtitle ?? '',
++                maxLines: 1,
++                overflow: TextOverflow.ellipsis,
++                style: const TextStyle(color: Colors.white60, fontSize: 11),
++              ),
++            ],
++          ),
++        ),
++        const Icon(Iconsax.arrow_right_3, color: Colors.white54, size: 18),
++      ],
++    );
++  }
++}
+diff -ur Zyntraplus-frontend/lib/widgets/profile/user_suggestions_strip.dart lib/widgets/profile/user_suggestions_strip.dart
+--- Zyntraplus-frontend/lib/widgets/profile/user_suggestions_strip.dart	2026-06-21 19:46:38.000000000 +0500
++++ lib/widgets/profile/user_suggestions_strip.dart	2026-06-24 16:32:23.066201447 +0500
+@@ -89,33 +89,18 @@
+     }
+   }
+ 
+-  Future<void> _openChat(FollowUser user) async {
+-    try {
+-      final conversationId = await ChatService.startDirect(user.id);
+-      var isOnline = false;
+-      try {
+-        final profile = await UserService.getById(user.id);
+-        isOnline = profile.isOnline;
+-      } catch (_) {}
+-      if (!mounted) return;
+-      await Navigator.push(
+-        context,
+-        MaterialPageRoute(
+-          builder: (_) => PersonalChatScreen(
+-            userId: user.id,
+-            name: user.displayName,
+-            avatar: user.avatarUrl ?? '',
+-            isOnline: isOnline,
+-            conversationId: conversationId,
+-          ),
++  void _openChat(FollowUser user) {
++    Navigator.push(
++      context,
++      MaterialPageRoute(
++        builder: (_) => PersonalChatScreen(
++          userId: user.id,
++          name: user.displayName,
++          avatar: user.avatarUrl ?? '',
++          isOnline: false,
+         ),
+-      );
+-    } catch (e) {
+-      if (!mounted) return;
+-      ScaffoldMessenger.of(context).showSnackBar(
+-        SnackBar(content: Text(ChatService.errorMessage(e))),
+-      );
+-    }
++      ),
++    );
+   }
+ 
+   @override

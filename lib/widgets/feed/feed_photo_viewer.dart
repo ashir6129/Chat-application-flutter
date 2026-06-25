@@ -167,7 +167,7 @@ class _FeedPhotoViewerState extends State<FeedPhotoViewer> {
                   return InteractiveViewer(
                     minScale: 1.0,
                     maxScale: 3.5,
-                    child: Image.network(
+                    child: Image.network(headers: const {"ngrok-skip-browser-warning": "true"}, 
                       widget.photos[index],
                       width: double.infinity,
                       height: double.infinity,
@@ -314,7 +314,7 @@ class _FeedPhotoViewerState extends State<FeedPhotoViewer> {
         children: [
           ClipRRect(
             borderRadius: BorderRadius.circular(8),
-            child: Image.network(
+            child: Image.network(headers: const {"ngrok-skip-browser-warning": "true"}, 
               product.imageUrl,
               width: 52,
               height: 52,

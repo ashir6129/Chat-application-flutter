@@ -113,6 +113,7 @@ io('http://localhost:4000', { auth: { token: accessToken } });
 | GET | `/users/:username` | Yes | Public profile + stats |
 | GET | `/users/:username/posts?type=all` | Yes | User posts by username |
 | GET | `/users?page=1&limit=20` | Yes | Browse users |
+| GET | `/users/nearby?latitude=24.8607&longitude=67.0011&maxDistanceKm=50` | Yes | Get nearby users based on distance |
 | POST | `/users/:userId/follow` | Yes | Follow user |
 | DELETE | `/users/:userId/follow` | Yes | Unfollow user |
 | GET | `/users/:userId/follow-status` | Yes | `{ following, followers_count, following_count }` |
@@ -143,6 +144,20 @@ Virtual credits system (500 starting balance per user). Production can swap to S
 ```
 
 **Errors:** `402` insufficient credits
+
+---
+
+## Box Requests (Nearby Connection)
+
+Users can send "Boxes" containing coins to nearby users to request a connection.
+
+| Method | Path | Auth | Body | Description |
+|--------|------|------|------|-------------|
+| POST | `/boxes` | Yes | `{ receiver_id, coins, note? }` | Send a box request |
+| GET | `/boxes/received` | Yes | — | Get pending received boxes |
+| GET | `/boxes/sent` | Yes | — | Get sent boxes |
+| PUT | `/boxes/:id/status` | Yes | `{ status }` | Accept or decline box (`accepted` / `declined`) |
+| GET | `/boxes/wallet` | Yes | — | Check box coins balance |
 
 ---
 

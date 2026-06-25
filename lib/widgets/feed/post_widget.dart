@@ -308,7 +308,7 @@ class ImageWidget extends StatelessWidget {
             _Caption(authorName: post.authorName, caption: post.caption),
 
           if (post.imagePath != null)
-            Image.network(
+            Image.network(headers: const {"ngrok-skip-browser-warning": "true"}, 
               post.imagePath!,
               width: double.infinity,
               height: 280,
@@ -390,7 +390,7 @@ class VideoWidget extends StatelessWidget {
               alignment: Alignment.center,
               children: [
                 post.thumbnailPath != null
-                    ? Image.network(
+                    ? Image.network(headers: const {"ngrok-skip-browser-warning": "true"}, 
                   post.thumbnailPath!,
                   width: double.infinity,
                   height: 280,
@@ -524,7 +524,7 @@ class ProductWidget extends StatelessWidget {
                     borderRadius: const BorderRadius.vertical(
                         top: Radius.circular(12)),
                     child: post.productImagePath != null
-                        ? Image.network(
+                        ? Image.network(headers: const {"ngrok-skip-browser-warning": "true"}, 
                       post.productImagePath!,
                       width: double.infinity,
                       height: 220,

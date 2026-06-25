@@ -157,6 +157,13 @@ class PostsService {
     }
   }
 
+  static Future<PostModel> getPost(String postId) async {
+    final data = await ApiMethods.authorizedGet('posts/$postId');
+    final postJson = data['data']?['post'] as Map<String, dynamic>?;
+    if (postJson == null) throw ApiException('Post not found');
+    return PostModel.fromApi(postJson);
+  }
+
   static String errorMessage(Object error) {
     if (error is ApiException) return error.message;
     return 'Something went wrong. Please try again.';

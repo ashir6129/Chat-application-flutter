@@ -358,7 +358,7 @@ class _SingleReelPageState extends State<SingleReelPage> {
                   ),
                 )
               : (reel.thumbnailUrl != null && MediaUrlUtils.isImageUrl(reel.thumbnailUrl!)
-                  ? Image.network(reel.thumbnailUrl!, fit: BoxFit.cover)
+                  ? Image.network(headers: const {"ngrok-skip-browser-warning": "true"}, reel.thumbnailUrl!, fit: BoxFit.cover)
                   : const ColoredBox(color: Colors.black)),
 
           if (!_initialized)

@@ -35,6 +35,9 @@ class UserProfile {
   final bool isFollowing;
   final bool isOnline;
   final DateTime? lastSeenAt;
+  final String? boxStatus;
+  final String? boxSenderId;
+  final String? boxRequestId;
 
   const UserProfile({
     required this.id,
@@ -50,6 +53,9 @@ class UserProfile {
     this.isFollowing = false,
     this.isOnline = false,
     this.lastSeenAt,
+    this.boxStatus,
+    this.boxSenderId,
+    this.boxRequestId,
   });
 
   factory UserProfile.fromApi(Map<String, dynamic> json) {
@@ -67,6 +73,9 @@ class UserProfile {
       isFollowing: json['is_following'] == true,
       isOnline: json['is_online'] == true,
       lastSeenAt: DateTime.tryParse(json['last_seen_at']?.toString() ?? ''),
+      boxStatus: json['box_status']?.toString(),
+      boxSenderId: json['box_sender_id']?.toString(),
+      boxRequestId: json['box_request_id']?.toString(),
     );
   }
 
@@ -75,6 +84,9 @@ class UserProfile {
     bool? isFollowing,
     bool? isOnline,
     DateTime? lastSeenAt,
+    String? boxStatus,
+    String? boxSenderId,
+    String? boxRequestId,
   }) {
     return UserProfile(
       id: id,
@@ -90,6 +102,9 @@ class UserProfile {
       isFollowing: isFollowing ?? this.isFollowing,
       isOnline: isOnline ?? this.isOnline,
       lastSeenAt: lastSeenAt ?? this.lastSeenAt,
+      boxStatus: boxStatus ?? this.boxStatus,
+      boxSenderId: boxSenderId ?? this.boxSenderId,
+      boxRequestId: boxRequestId ?? this.boxRequestId,
     );
   }
 

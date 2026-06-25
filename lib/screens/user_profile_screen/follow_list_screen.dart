@@ -118,18 +118,33 @@ class _FollowListScreenState extends State<FollowListScreen> {
     }
   }
 
-  void _openMessage(FollowUser user) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => PersonalChatScreen(
-          userId: user.id,
-          name: user.displayName,
-          avatar: user.avatarUrl ?? '',
-          isOnline: false,
+  Future<void> _openMessage(FollowUser user) async {
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      final conversationId = await ChatService.startDirect(user.id);
+      var isOnline = false;
+      try {
+        final profile = await UserService.getById(user.id);
+        isOnline = profile.isOnline;
+      } catch (_) {}
+      if (!context.mounted) return;
+      await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => PersonalChatScreen(
+            userId: user.id,
+            name: user.displayName,
+            avatar: user.avatarUrl ?? '',
+            isOnline: isOnline,
+            conversationId: conversationId,
+          ),
         ),
-      ),
-    );
+      );
+    } catch (e) {
+      messenger.showSnackBar(
+        SnackBar(content: Text(ChatService.errorMessage(e))),
+      );
+    }
   }
 
   String _buttonLabel(FollowUser user) {

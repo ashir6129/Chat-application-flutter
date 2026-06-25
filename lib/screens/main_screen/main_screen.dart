@@ -7,6 +7,8 @@ import 'package:zyntraplus/screens/nearby_users_screen/nearby_users_screen.dart'
 import 'package:zyntraplus/screens/notification_screen/notification_screen.dart';
 import 'package:zyntraplus/screens/reels_screen/reels_screen.dart';
 import '../../api_services/user_service.dart';
+import '../../api_services/chat_service.dart';
+import '../../api_services/notification_service.dart';
 import 'package:zyntraplus/core/profile_memory_cache.dart';
 import '../../core/app_colors.dart';
 import '../../core/profile_refresh.dart';
@@ -32,6 +34,9 @@ class _MainScreenState extends State<MainScreen> {
   String _userGreeting = 'there';
   late final ProfileRefreshListener _profileRefreshListener;
 
+  bool _hasUnreadMessages = false;
+  bool _hasUnreadNotifications = false;
+
   @override
   void initState() {
     super.initState();
@@ -45,6 +50,19 @@ class _MainScreenState extends State<MainScreen> {
       statusBarColor: Colors.transparent,
       statusBarIconBrightness: Brightness.light,
     ));
+    _checkUnreadCounts();
+  }
+
+  Future<void> _checkUnreadCounts() async {
+    try {
+      final chats = await ChatService.getConversations();
+      final hasUnreadChat = chats.any((c) => c.unreadCount > 0);
+      if (mounted) setState(() => _hasUnreadMessages = hasUnreadChat);
+
+      final notifs = await NotificationService.getNotifications(page: 1, limit: 1);
+      final unreadCount = (notifs['unread_count'] as int?) ?? 0;
+      if (mounted) setState(() => _hasUnreadNotifications = unreadCount > 0);
+    } catch (_) {}
   }
 
   Future<void> _loadUserGreeting({bool silent = false}) async {
@@ -54,6 +72,10 @@ class _MainScreenState extends State<MainScreen> {
       if (!mounted) return;
       setState(() => _userGreeting = profile.displayName);
       NotificationHelper.registerFcmToken();
+      if (mounted) {
+        NotificationHelper.checkAndPromptPermission(context);
+      }
+      _checkUnreadCounts();
     } catch (_) {
       if (!mounted) return;
       setState(() => _userGreeting = 'there');
@@ -70,7 +92,10 @@ class _MainScreenState extends State<MainScreen> {
   void _onTap(int index) {
     if (_currentIndex == index) return;
     HapticFeedback.lightImpact();
-    setState(() => _currentIndex = index);
+    setState(() {
+      _currentIndex = index;
+    });
+    if (index == 0) _checkUnreadCounts();
   }
 
   String _getTitle() {
@@ -92,31 +117,40 @@ class _MainScreenState extends State<MainScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.primaryBackground(context),
-      appBar: _currentIndex == 0 ? _buildAppBar() : null,
-      extendBody: false,
-      body: Column(
-        children: [
-          const OfflineBanner(),
-          Expanded(
-            child: IndexedStack(
-              index: _currentIndex,
-              children: [
-                const HomeScreen(key: PageStorageKey('home_tab')),
-                ReelsScreen(
-                  key: const PageStorageKey('reels_tab'),
-                  isActive: _currentIndex == 1,
-                ),
-                const MarketplaceScreen(key: PageStorageKey('shop_tab')),
-                const PeopleNearbyScreen(key: PageStorageKey('nearby_tab')),
-                const ProfileLandingScreen(key: PageStorageKey('profile_tab')),
-              ],
+    return PopScope(
+      canPop: _currentIndex == 0,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        setState(() {
+          _currentIndex = 0;
+        });
+      },
+      child: Scaffold(
+        backgroundColor: AppColors.primaryBackground(context),
+        appBar: _currentIndex == 0 ? _buildAppBar() : null,
+        extendBody: false,
+        body: Column(
+          children: [
+            const OfflineBanner(),
+            Expanded(
+              child: IndexedStack(
+                index: _currentIndex,
+                children: [
+                  const HomeScreen(key: PageStorageKey('home_tab')),
+                  ReelsScreen(
+                    key: const PageStorageKey('reels_tab'),
+                    isActive: _currentIndex == 1,
+                  ),
+                  const MarketplaceScreen(key: PageStorageKey('shop_tab')),
+                  const PeopleNearbyScreen(key: PageStorageKey('nearby_tab')),
+                  const ProfileLandingScreen(key: PageStorageKey('profile_tab')),
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
+        bottomNavigationBar: _buildStickyNavBar(),
       ),
-      bottomNavigationBar: _buildStickyNavBar(),
     );
   }
 
@@ -154,16 +188,34 @@ class _MainScreenState extends State<MainScreen> {
         ],
       ),
       actions: [
-        IconButton(
-          onPressed: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => const MessagesHubScreen(),
+        Stack(
+          clipBehavior: Clip.none,
+          children: [
+            IconButton(
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const MessagesHubScreen(),
+                  ),
+                ).then((_) => _checkUnreadCounts());
+              },
+              icon: Icon(Iconsax.message, color: iconColor, size: 24),
+            ),
+            if (_hasUnreadMessages)
+              Positioned(
+                top: 8,
+                right: 8,
+                child: Container(
+                  width: 8,
+                  height: 8,
+                  decoration: const BoxDecoration(
+                    color: Color(0xFF00C853),
+                    shape: BoxShape.circle,
+                  ),
+                ),
               ),
-            );
-          },
-          icon: Icon(Iconsax.message, color: iconColor, size: 24),
+          ],
         ),
         IconButton(
           onPressed: () {
@@ -176,16 +228,36 @@ class _MainScreenState extends State<MainScreen> {
           },
           icon: Icon(Iconsax.search_normal, color: iconColor, size: 24),
         ),
-        IconButton(
-          onPressed: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => const NotificationScreen(),
+        Stack(
+          clipBehavior: Clip.none,
+          children: [
+            IconButton(
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const NotificationScreen(),
+                  ),
+                ).then((_) {
+                  setState(() => _hasUnreadNotifications = false);
+                });
+              },
+              icon: Icon(Iconsax.notification, color: iconColor, size: 24),
+            ),
+            if (_hasUnreadNotifications)
+              Positioned(
+                top: 8,
+                right: 8,
+                child: Container(
+                  width: 8,
+                  height: 8,
+                  decoration: const BoxDecoration(
+                    color: Color(0xFF00C853),
+                    shape: BoxShape.circle,
+                  ),
+                ),
               ),
-            );
-          },
-          icon: Icon(Iconsax.notification, color: iconColor, size: 24),
+          ],
         ),
         const SizedBox(width: 4),
       ],

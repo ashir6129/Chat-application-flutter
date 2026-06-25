@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:zyntraplus/core/connectivity_service.dart';
@@ -14,6 +15,8 @@ final ValueNotifier<ThemeMode> themeModeNotifier = ValueNotifier(ThemeMode.dark)
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  HttpOverrides.global = _NgrokHttpOverrides();
 
   await OfflineCacheService.init();
   await ImageCacheService.init();
@@ -59,5 +62,14 @@ class MyApp extends StatelessWidget {
         home: const SplashScreen(),
       ),
     );
+  }
+}
+
+class _NgrokHttpOverrides extends HttpOverrides {
+  @override
+  HttpClient createHttpClient(SecurityContext? context) {
+    final client = super.createHttpClient(context);
+    client.badCertificateCallback = (X509Certificate cert, String host, int port) => true;
+    return client;
   }
 }

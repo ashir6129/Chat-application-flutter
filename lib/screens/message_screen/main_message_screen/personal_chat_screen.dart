@@ -147,7 +147,11 @@ class _PersonalChatScreenState extends State<PersonalChatScreen> {
       _receiptSub = SocketService.onMessageReceipts.listen(_onReceiptUpdate);
       _readSub = SocketService.onMessageRead.listen(_onReadUpdate);
       _presenceSub = SocketService.onPresenceChanged.listen(_onPresenceChanged);
-      await ChatService.markRead(_conversationId!);
+      
+      // Mark existing messages as read when opening the chat screen
+      if (_conversationId != null && _conversationId!.isNotEmpty) {
+        ChatService.markRead(_conversationId!);
+      }
 
       if (!mounted) return;
       setState(() => _loading = false);

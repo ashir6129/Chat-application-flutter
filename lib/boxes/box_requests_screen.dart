@@ -4,7 +4,8 @@ import '../api_services/box_service.dart';
 import 'receive_box.dart';
 
 class BoxRequestsScreen extends StatefulWidget {
-  const BoxRequestsScreen({super.key});
+  final int initialTab;
+  const BoxRequestsScreen({super.key, this.initialTab = 0});
 
   @override
   State<BoxRequestsScreen> createState() => _BoxRequestsScreenState();
@@ -20,7 +21,7 @@ class _BoxRequestsScreenState extends State<BoxRequestsScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    _tabController = TabController(length: 2, vsync: this, initialIndex: widget.initialTab);
     _loadRequests();
   }
 
@@ -132,7 +133,7 @@ class _BoxRequestsScreenState extends State<BoxRequestsScreen>
     if (_receivedRequests.isEmpty) {
       return Center(
         child: Column(
-          mainAxisAlignment: Main => MainAxisAlignment.center,
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(Icons.inbox_outlined,
                 size: 48, color: AppColors.mutedText(context)),

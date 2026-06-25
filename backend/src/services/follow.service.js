@@ -1,5 +1,6 @@
 import { AppError } from '../utils/AppError.js';
 import { findUserById } from '../models/user.model.js';
+import { sendPushNotification } from './notification.service.js';
 import {
   followUser,
   unfollowUser,
@@ -23,6 +24,21 @@ export async function follow(userId, targetUserId) {
   await followUser({ followerId: userId, followingId: targetUserId });
   await invalidateUserFeedCache(userId);
   await invalidateUserSuggestions(userId);
+
+  // Send push notification asynchronously
+  findUserById(userId).then((follower) => {
+    if (follower) {
+      const followerName = follower.username || 'Someone';
+      sendPushNotification(targetUserId, {
+        title: 'New Follower',
+        body: `${followerName} started following you`,
+        data: {
+          type: 'follow',
+          follower_id: userId,
+        },
+      });
+    }
+  }).catch((err) => console.error('Failed to send follow push notification:', err.message));
 
   return {
     following: true,

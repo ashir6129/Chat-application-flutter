@@ -1,6 +1,9 @@
 import env from '../config/env.js';
 import { AppError } from '../utils/AppError.js';
 import { timeAgo } from '../utils/format.js';
+import { sendPushNotification } from './notification.service.js';
+import { listFollowers } from '../models/follow.model.js';
+import { findUserById } from '../models/user.model.js';
 import {
   cacheRemember,
   invalidateAllFeedCaches,
@@ -107,6 +110,30 @@ export async function createUserPost(userId, body) {
   await invalidateAllFeedCaches();
   await invalidateAllReelsCaches();
   await invalidateUserFeedCache(userId);
+
+  // Send push notifications to followers asynchronously
+  Promise.all([
+    findUserById(userId),
+    listFollowers(userId, { limit: 500 }),
+  ]).then(([author, followers]) => {
+    if (author && followers && followers.length > 0) {
+      const authorName = author.username || 'Someone';
+      const postTypeLabel = full.post_type === 'reel' ? 'reel' : 'post';
+      for (const follower of followers) {
+        sendPushNotification(follower.id, {
+          title: 'New Post',
+          body: `${authorName} shared a new ${postTypeLabel}`,
+          data: {
+            type: 'post',
+            post_id: full.id,
+            post_type: full.post_type,
+            author_id: userId,
+          },
+        });
+      }
+    }
+  }).catch((err) => console.error('Failed to send new post push notifications:', err.message));
+
   return serializePost(full, userId);
 }
 
@@ -168,7 +195,27 @@ export async function likePost(userId, postId) {
   const post = await findPostById(postId, userId, env.upload.baseUrl);
   if (!post) throw new AppError('Post not found', 404);
 
-  return toggleLike({ postId, userId });
+  const result = await toggleLike({ postId, userId });
+
+  // Send notification to author if someone else likes the post
+  if (result.liked && post.user_id !== userId) {
+    findUserById(userId).then((liker) => {
+      if (liker) {
+        const likerName = liker.username || 'Someone';
+        sendPushNotification(post.user_id, {
+          title: 'New Like',
+          body: `${likerName} liked your post`,
+          data: {
+            type: 'like',
+            post_id: postId,
+            liker_id: userId,
+          },
+        });
+      }
+    }).catch((err) => console.error('Failed to send like push notification:', err.message));
+  }
+
+  return result;
 }
 
 export async function removePost(userId, postId) {

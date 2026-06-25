@@ -152,7 +152,7 @@ class _MediaPreview extends StatelessWidget {
       child: Stack(
         children: [
           _imageUrl != null
-              ? Image.network(
+              ? Image.network(headers: const {"ngrok-skip-browser-warning": "true"}, 
             _imageUrl!,
             width: double.infinity,
             height: 260,

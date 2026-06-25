@@ -53,7 +53,7 @@ class UserAllProductsTab extends StatelessWidget {
             fit: StackFit.expand,
             children: [
 
-              Image.network(
+              Image.network(headers: const {"ngrok-skip-browser-warning": "true"}, 
                 product.imageUrl,
                 fit: BoxFit.cover,
                 errorBuilder: (_, __, ___) => Container(

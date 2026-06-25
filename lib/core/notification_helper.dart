@@ -1,15 +1,33 @@
 import 'dart:developer' as developer;
+import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:zyntraplus/core/api_methods.dart';
+
+import 'package:zyntraplus/core/in_app_notification.dart';
+import 'package:zyntraplus/core/notification_router.dart';
+
+void _log(String message) {
+  developer.log(message);
+  print("[NotificationHelper] $message");
+}
 
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   try {
-    await Firebase.initializeApp();
+    await Firebase.initializeApp(
+      options: const FirebaseOptions(
+        apiKey: 'AIzaSyCM3hf3qjj_BYvLnvhMPbz57EZ_fLLTyAE',
+        appId: '1:550799770194:android:d9dd30dbcd7f578f2f958b',
+        messagingSenderId: '550799770194',
+        projectId: 'zyntraplus-3b9df',
+        storageBucket: 'zyntraplus-3b9df.firebasestorage.app',
+      ),
+    );
   } catch (_) {}
-  developer.log("Handling a background message: ${message.messageId} - ${message.notification?.title}");
+  _log("Handling a background message: ${message.messageId} - ${message.notification?.title}");
 }
 
 class NotificationHelper {
@@ -25,27 +43,22 @@ class NotificationHelper {
     'high_importance_channel',
     'High Importance Notifications',
     description: 'This channel is used for important notifications.',
-    importance: Importance.high,
+    importance: Importance.max,
+    playSound: true,
+    enableVibration: true,
   );
 
   static Future<void> init() async {
     if (_isInitialized) return;
+
+    // 1. Initialize local notifications and request permissions immediately on startup
     try {
-      // Safely attempt initialization. If configuration is missing (e.g. google-services.json),
-      // it will catch the error and run in simulated/fallback mode.
-      await Firebase.initializeApp();
-      _messaging = FirebaseMessaging.instance;
-
-      // Set up background handler
-      FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
-
-      // Setup Local Notifications
       const AndroidInitializationSettings initializationSettingsAndroid =
           AndroidInitializationSettings('@mipmap/ic_launcher');
       const InitializationSettings initializationSettings = InitializationSettings(
         android: initializationSettingsAndroid,
       );
-      await _localNotifications.initialize(initializationSettings);
+      await _localNotifications.initialize(settings: initializationSettings);
 
       // Create Android Notification Channel
       await _localNotifications
@@ -53,28 +66,94 @@ class NotificationHelper {
               AndroidFlutterLocalNotificationsPlugin>()
           ?.createNotificationChannel(_channel);
 
-      _isInitialized = true;
-      developer.log("Firebase initialized successfully for notifications.");
+      // Prompt for notifications permission on Android 13+
+      await _localNotifications
+          .resolvePlatformSpecificImplementation<
+              AndroidFlutterLocalNotificationsPlugin>()
+          ?.requestNotificationsPermission();
 
-      await _requestPermissions();
+      _log("Local notifications initialized and permission requested.");
+    } catch (e) {
+      _log("Failed to request local notifications permission: $e");
+    }
+
+    // 2. Initialize Firebase Core + Messaging
+    try {
+      await Firebase.initializeApp(
+        options: const FirebaseOptions(
+          apiKey: 'AIzaSyCM3hf3qjj_BYvLnvhMPbz57EZ_fLLTyAE',
+          appId: '1:550799770194:android:d9dd30dbcd7f578f2f958b',
+          messagingSenderId: '550799770194',
+          projectId: 'zyntraplus-3b9df',
+          storageBucket: 'zyntraplus-3b9df.firebasestorage.app',
+        ),
+      );
+      _messaging = FirebaseMessaging.instance;
+
+      // Set up background handler
+      FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+
+      _isInitialized = true;
+      _log("Firebase initialized successfully for notifications.");
+
+      // Prompt for FCM permissions
+      if (_messaging != null) {
+        NotificationSettings settings = await _messaging!.requestPermission(
+          alert: true,
+          badge: true,
+          provisional: false,
+          sound: true,
+        );
+        _log('User granted FCM permissions: ${settings.authorizationStatus}');
+      }
 
       FirebaseMessaging.onMessage.listen((RemoteMessage message) {
-        developer.log("Foreground notification message: ${message.notification?.title}");
+        _log("Foreground notification message: ${message.notification?.title}");
         
         RemoteNotification? notification = message.notification;
         AndroidNotification? android = message.notification?.android;
 
+        if (notification != null) {
+          try {
+            InAppNotification.show(
+              title: notification.title ?? 'Notification',
+              body: notification.body ?? '',
+              onTap: () {
+                final type = message.data['type'] as String?;
+                if (type != null) {
+                  handleNotificationRouting(type: type, data: message.data);
+                }
+              },
+            );
+          } catch (e) {
+            _log("Failed to show in-app banner: $e");
+          }
+        }
+
         if (notification != null && android != null) {
           _localNotifications.show(
-            notification.hashCode,
-            notification.title,
-            notification.body,
-            NotificationDetails(
+            id: notification.hashCode,
+            title: notification.title,
+            body: notification.body,
+            notificationDetails: NotificationDetails(
               android: AndroidNotificationDetails(
                 _channel.id,
                 _channel.name,
                 channelDescription: _channel.description,
                 icon: '@mipmap/ic_launcher',
+                importance: Importance.max,
+                priority: Priority.high,
+                playSound: true,
+                enableVibration: true,
+                fullScreenIntent: true,
+                color: const Color(0xFF7C3AED),
+                styleInformation: BigTextStyleInformation(
+                  notification.body ?? '',
+                  contentTitle: notification.title,
+                ),
+                ledColor: const Color(0xFF7C3AED),
+                ledOnMs: 1000,
+                ledOffMs: 1000,
               ),
             ),
             payload: message.data.toString(),
@@ -83,31 +162,61 @@ class NotificationHelper {
       });
 
       FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
-        developer.log("Notification opened app: ${message.data}");
+        _log("Notification opened app: ${message.data}");
+        final type = message.data['type'] as String?;
+        if (type != null) {
+          handleNotificationRouting(type: type, data: message.data);
+        }
+      });
+
+      FirebaseMessaging.instance.getInitialMessage().then((RemoteMessage? message) {
+        if (message != null) {
+          _log("Initial message opened app: ${message.data}");
+          Future.delayed(const Duration(milliseconds: 1500), () {
+            final type = message.data['type'] as String?;
+            if (type != null) {
+              handleNotificationRouting(type: type, data: message.data);
+            }
+          });
+        }
       });
     } catch (e) {
-      developer.log("Firebase initialization bypassed/failed (standard without JSON config): $e");
+      _log("Firebase initialization bypassed/failed (standard without JSON config): $e");
     }
   }
 
-  static Future<void> _requestPermissions() async {
-    if (_messaging == null) return;
+  static Future<void> checkAndPromptPermission(BuildContext context) async {
     try {
-      NotificationSettings settings = await _messaging!.requestPermission(
-        alert: true,
-        badge: true,
-        provisional: false,
-        sound: true,
-      );
-      developer.log('User granted notification permissions: ${settings.authorizationStatus}');
-      
-      // Request permission for local notifications on Android 13+
-      await _localNotifications
-          .resolvePlatformSpecificImplementation<
-              AndroidFlutterLocalNotificationsPlugin>()
-          ?.requestNotificationsPermission();
+      final status = await Permission.notification.status;
+      _log("Checking notification permission status: $status");
+      if (status.isDenied || status.isPermanentlyDenied || status.isRestricted) {
+        if (!context.mounted) return;
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (dialogCtx) => AlertDialog(
+            title: const Text('Enable Notifications'),
+            content: const Text(
+              'To receive real-time notifications for messages, likes, follows, and comments, please enable notifications in app settings.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogCtx),
+                child: const Text('Later'),
+              ),
+              ElevatedButton(
+                onPressed: () async {
+                  Navigator.pop(dialogCtx);
+                  await openAppSettings();
+                },
+                child: const Text('Open Settings'),
+              ),
+            ],
+          ),
+        );
+      }
     } catch (e) {
-      developer.log('Failed to request notification permissions: $e');
+      _log("Error checking/prompting notification permission: $e");
     }
   }
 
@@ -118,7 +227,7 @@ class NotificationHelper {
     try {
       return await _messaging!.getToken();
     } catch (e) {
-      developer.log('Error getting FCM token: $e');
+      _log('Error getting FCM token: $e');
       return 'fcm_mock_token_fallback';
     }
   }
@@ -128,12 +237,12 @@ class NotificationHelper {
       final token = await getFcmToken();
       if (token == null || token.isEmpty) return;
 
-      developer.log('Uploading FCM Token to API: $token');
+      _log('Uploading FCM Token to API: $token');
       await ApiMethods.authorizedPut('users/me/fcm-token', {
         'fcm_token': token,
       });
     } catch (e) {
-      developer.log('Failed to register FCM token with API: $e');
+      _log('Failed to register FCM token with API: $e');
     }
   }
 }

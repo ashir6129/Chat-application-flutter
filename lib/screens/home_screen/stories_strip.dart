@@ -187,13 +187,13 @@ class _UserStoryBubble extends StatelessWidget {
         child: Container(
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            color: user.color,
+            color: AppColors.composerBackground(context),
           ),
           alignment: Alignment.center,
           child: Text(
             user.initial,
-            style: const TextStyle(
-              color: Colors.white,
+            style: TextStyle(
+              color: user.color,
               fontSize: 24,
               fontWeight: FontWeight.w700,
               height: 1,

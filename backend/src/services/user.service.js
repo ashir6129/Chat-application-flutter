@@ -103,6 +103,14 @@ async function attachStats(profile, userId, viewerId = null) {
   if (viewerId && viewerId !== userId) {
     const { isFollowing } = await import('../models/follow.model.js');
     profile.is_following = await isFollowing(viewerId, userId);
+    
+    const { findBoxRequestBetween } = await import('../models/box.model.js');
+    const boxReq = await findBoxRequestBetween(viewerId, userId);
+    if (boxReq) {
+      profile.box_status = boxReq.status;
+      profile.box_sender_id = boxReq.sender_id;
+      profile.box_request_id = boxReq.id;
+    }
   }
   return profile;
 }

@@ -54,7 +54,7 @@ class UserAllPhotosTab extends StatelessWidget {
             fit: StackFit.expand,
             children: [
 
-              Image.network(
+              Image.network(headers: const {"ngrok-skip-browser-warning": "true"}, 
                 _photos[index],
                 fit: BoxFit.cover,
                 errorBuilder: (_, __, ___) => Container(
@@ -142,7 +142,7 @@ class _PhotoViewerState extends State<_PhotoViewer> {
                 minScale: 1.0,
                 maxScale: 4.0,
                 child: Center(
-                  child: Image.network(
+                  child: Image.network(headers: const {"ngrok-skip-browser-warning": "true"}, 
                     widget.photos[index],
                     fit: BoxFit.contain,
                     errorBuilder: (_, __, ___) => const Icon(

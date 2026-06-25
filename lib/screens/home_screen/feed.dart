@@ -569,7 +569,7 @@ class _FeedCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 14, 12, 10),
+            padding: const EdgeInsets.fromLTRB(16, 12, 12, 0),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
@@ -704,7 +704,10 @@ class _FeedCard extends StatelessWidget {
               isOwner: isOwnPost,
             ),
           if (post.displayCaption.isNotEmpty)
-            FeedCaptionText(caption: post.displayCaption),
+            FeedCaptionText(
+              caption: post.displayCaption,
+              padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
+            ),
           if (post.images.isEmpty)
             const SizedBox.shrink()
           else if (post.images.length == 1 &&

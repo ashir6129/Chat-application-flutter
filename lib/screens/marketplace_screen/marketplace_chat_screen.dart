@@ -460,7 +460,7 @@ class _ProductContextCard extends StatelessWidget {
           children: [
             ClipRRect(
               borderRadius: BorderRadius.circular(8),
-              child: Image.network(
+              child: Image.network(headers: const {"ngrok-skip-browser-warning": "true"}, 
                 imageUrl,
                 width: 48,
                 height: 48,

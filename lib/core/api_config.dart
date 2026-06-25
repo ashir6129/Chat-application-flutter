@@ -12,13 +12,13 @@ class ApiConfig {
   ApiConfig._();
 
   static const String productionBaseUrl =
-      'https://zyntraplus-1-production.up.railway.app/api/v1';
+      'https://profound-friend-implosive.ngrok-free.dev/api/v1';
 
-  static const String localBaseUrl = 'https://profound-friend-implosive.ngrok-free.dev/api/v1';
+  static const String localBaseUrl = 'http://localhost:4000/api/v1';
 
   /// Phone/emulator debug: Railway when true. Chrome/web debug always uses [localBaseUrl]
   /// (browser CORS blocks localhost → Railway unless CORS_ORIGIN=* on Railway).
-  static const bool debugUseProductionApi = false;
+  static const bool debugUseProductionApi = true;
 
   static const String baseUrl = String.fromEnvironment(
     'API_BASE_URL',

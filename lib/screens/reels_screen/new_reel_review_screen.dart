@@ -58,7 +58,7 @@ class _NewReelReviewScreenState extends State<NewReelReviewScreen> {
                       children: [
                         ClipRRect(
                           borderRadius: BorderRadius.circular(10),
-                          child: Image.network(
+                          child: Image.network(headers: const {"ngrok-skip-browser-warning": "true"}, 
                             'https://picsum.photos/seed/reelcover/200/280',
                             width: 100,
                             height: 130,

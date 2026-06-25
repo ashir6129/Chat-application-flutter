@@ -465,7 +465,7 @@ class _ImageGallery extends StatelessWidget {
           PageView.builder(
             itemCount: images.length,
             onPageChanged: onPageChanged,
-            itemBuilder: (ctx, i) => Image.network(
+            itemBuilder: (ctx, i) => Image.network(headers: const {"ngrok-skip-browser-warning": "true"}, 
               images[i],
               fit: BoxFit.cover,
               width: double.infinity,
@@ -594,7 +594,7 @@ class _SponsoredAd extends StatelessWidget {
               children: [
                 ClipRRect(
                   borderRadius: BorderRadius.circular(10),
-                  child: Image.network(
+                  child: Image.network(headers: const {"ngrok-skip-browser-warning": "true"}, 
                     'https://i.pinimg.com/736x/99/58/39/9958394ff4d9b24871996ba317e613fd.jpg',
                     width: 64,
                     height: 64,
@@ -720,7 +720,7 @@ class _SuggestedSection extends StatelessWidget {
                     children: [
                       ClipRRect(
                         borderRadius: BorderRadius.circular(12),
-                        child: Image.network(
+                        child: Image.network(headers: const {"ngrok-skip-browser-warning": "true"}, 
                           item["image"],
                           height: 100,
                           width: 130,

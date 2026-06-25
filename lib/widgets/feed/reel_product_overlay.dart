@@ -61,7 +61,7 @@ class ReelProductOverlay extends StatelessWidget {
       children: [
         ClipRRect(
           borderRadius: BorderRadius.circular(8),
-          child: Image.network(
+          child: Image.network(headers: const {"ngrok-skip-browser-warning": "true"}, 
             productImage!,
             width: 48,
             height: 48,
@@ -134,7 +134,7 @@ class ReelProductOverlay extends StatelessWidget {
         if (bannerImage != null)
           ClipRRect(
             borderRadius: BorderRadius.circular(8),
-            child: Image.network(
+            child: Image.network(headers: const {"ngrok-skip-browser-warning": "true"}, 
               bannerImage!,
               width: 48,
               height: 48,

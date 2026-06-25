@@ -104,7 +104,10 @@ class ApiMethods {
     final response = await _sendRequest(
       endpoint,
       method,
-      headers: const {'Content-Type': 'application/json'},
+      headers: const {
+        'Content-Type': 'application/json',
+        'ngrok-skip-browser-warning': 'true',
+      },
       body: body,
     );
 
@@ -176,5 +179,6 @@ class ApiMethods {
   static Map<String, String> _headers(String token) => {
         'Authorization': 'Bearer $token',
         'Content-Type': 'application/json',
+        'ngrok-skip-browser-warning': 'true',
       };
 }

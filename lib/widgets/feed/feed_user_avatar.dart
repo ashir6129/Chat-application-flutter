@@ -63,33 +63,15 @@ class FeedUserAvatar extends StatelessWidget {
   }
 
   Widget _placeholder(BuildContext context, Border? border) {
-    if (!showBorder) {
-      return Container(
-        width: size,
-        height: size,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          color: accentColor,
-        ),
-        alignment: Alignment.center,
-        child: Text(
-          _initial,
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: size * 0.42,
-            fontWeight: FontWeight.w700,
-            height: 1,
-          ),
-        ),
-      );
-    }
+    final ringColor = borderColor ?? accentColor.withValues(alpha: 0.55);
+    final effectiveBorder = border ?? Border.all(color: ringColor, width: 1.5);
 
     return Container(
       width: size,
       height: size,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        border: border,
+        border: effectiveBorder,
         color: AppColors.composerBackground(context),
       ),
       alignment: Alignment.center,

@@ -21,6 +21,8 @@ This document maps original project requirements to implementation status.
 | Delivery status | ✅ Done | sent → delivered → read |
 | User profile APIs | ✅ Done | CRUD, avatar, posts by user |
 | Follow system | ✅ Done | Follow/unfollow + real follower counts |
+| Nearby Users & Discovery | ✅ Done | Haversine distance filtering + Map UI |
+| Box Requests | ✅ Done | Send coins/boxes to connect with nearby users |
 | Tips | ✅ Done | In-app credits (500 start balance); not real money yet |
 | Security basics | ✅ Done | JWT, rate limit, helmet, CORS, bcrypt |
 | API documentation | ✅ Done | `docs/API.md` (this file + API reference) |
@@ -39,6 +41,7 @@ This document maps original project requirements to implementation status.
 - `users`, `profiles`, `posts`, `post_likes`, `post_comments`
 - `refresh_tokens`, `password_reset_otps`
 - `conversations`, `conversation_members`, `messages`, `message_receipts`
+- `box_requests`
 - `posts.post_meta`, `posts.is_archived`, `posts.media_meta`
 - `user_wallets`, `tips`
 - `user_follows`
@@ -52,6 +55,8 @@ This document maps original project requirements to implementation status.
 - Messaging screens + Socket.IO client
 - Post menu: edit, archive, delete (profile + home feed for own posts)
 - Poll UI (Instagram-style card)
+- Nearby users list + Interactive map (Explore)
+- Box requests UI (Send box, Review box, Request center)
 - Tips (wallet balance + send tip API)
 
 ---
@@ -66,7 +71,7 @@ This document maps original project requirements to implementation status.
 | **Feed personalization** | Global feed (all users) | Filter by followed users only (optional toggle) |
 | **Media storage** | Local `uploads/` folder | S3 / Cloudinary for production |
 | **Share post** | UI sheet only | Deep links + share API |
-| **Push notifications** | Not implemented | FCM/APNs for messages & tips |
+| **Voice / Video call** | WebRTC signaling in place | Needs device testing by client |
 
 ---
 

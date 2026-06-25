@@ -13,6 +13,7 @@ import 'explore_map_screen.dart';
 import 'location_helper.dart';
 
 import '../../core/app_colors.dart';
+import '../../core/main_tab_navigation.dart';
 import '../../boxes/send_box_screen.dart';
 import '../../boxes/receive_box.dart';
 
@@ -86,11 +87,22 @@ class _PeopleNearbyScreenState extends State<PeopleNearbyScreen> {
   StreamSubscription? _boxReceivedSubscription;
   StreamSubscription? _boxStatusChangedSubscription;
 
+  bool _hasUnreadMessages = false;
+
   @override
   void initState() {
     super.initState();
     _loadNearbyUsers();
     _subscribeToBoxEvents();
+    _checkUnreadCounts();
+  }
+
+  Future<void> _checkUnreadCounts() async {
+    try {
+      final chats = await ChatService.getConversations();
+      final hasUnreadChat = chats.any((c) => c.unreadCount > 0);
+      if (mounted) setState(() => _hasUnreadMessages = hasUnreadChat);
+    } catch (_) {}
   }
 
   @override
@@ -341,7 +353,7 @@ class _PeopleNearbyScreenState extends State<PeopleNearbyScreen> {
       centerTitle: false,
       toolbarHeight: 56,
       leading: IconButton(
-        onPressed: () => Navigator.pop(context),
+        onPressed: () => MainTabNavigation.goTo(0),
         icon: Icon(Iconsax.arrow_left, color: AppColors.primaryText(context)),
       ),
 
@@ -389,7 +401,7 @@ class _PeopleNearbyScreenState extends State<PeopleNearbyScreen> {
                       initialSpace: ChatSpace.creators,
                     ),
                   ),
-                );
+                ).then((_) => _checkUnreadCounts());
               },
               icon: Icon(
                 Iconsax.message,
@@ -397,18 +409,19 @@ class _PeopleNearbyScreenState extends State<PeopleNearbyScreen> {
                 size: 22,
               ),
             ),
-            Positioned(
-              top: 8,
-              right: 8,
-              child: Container(
-                width: 8,
-                height: 8,
-                decoration: BoxDecoration(
-                  color: AppColors.buttonColor(context),
-                  shape: BoxShape.circle,
+            if (_hasUnreadMessages)
+              Positioned(
+                top: 8,
+                right: 8,
+                child: Container(
+                  width: 8,
+                  height: 8,
+                  decoration: const BoxDecoration(
+                    color: Color(0xFF00C853),
+                    shape: BoxShape.circle,
+                  ),
                 ),
               ),
-            ),
           ],
         ),
 

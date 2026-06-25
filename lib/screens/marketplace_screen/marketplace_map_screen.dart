@@ -369,7 +369,7 @@ class _MarketplaceMapScreenState extends State<MarketplaceMapScreen> {
             children: [
               ClipRRect(
                 borderRadius: BorderRadius.circular(10),
-                child: Image.network(
+                child: Image.network(headers: const {"ngrok-skip-browser-warning": "true"}, 
                   item['image'] as String,
                   width: 58,
                   height: 58,
@@ -594,7 +594,7 @@ class _MarketplaceMapScreenState extends State<MarketplaceMapScreen> {
           children: [
             ClipRRect(
               borderRadius: BorderRadius.circular(10),
-              child: Image.network(
+              child: Image.network(headers: const {"ngrok-skip-browser-warning": "true"}, 
                 item['image'] as String,
                 width: 76,
                 height: 76,

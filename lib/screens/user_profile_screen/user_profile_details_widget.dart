@@ -3,6 +3,8 @@ import 'package:iconsax/iconsax.dart';
 import 'package:zyntraplus/api_services/chat_service.dart';
 import 'package:zyntraplus/models/user_profile.dart';
 import 'package:zyntraplus/screens/message_screen/main_message_screen/personal_chat_screen.dart';
+import 'package:zyntraplus/boxes/send_box_screen.dart';
+import 'package:zyntraplus/boxes/receive_box.dart';
 import '../../../core/app_colors.dart';
 
 class UserProfileDetailsWidget extends StatelessWidget {
@@ -25,20 +27,6 @@ class UserProfileDetailsWidget extends StatelessWidget {
     if (count >= 1000000) return '${(count / 1000000).toStringAsFixed(1)}M';
     if (count >= 1000) return '${(count / 1000).toStringAsFixed(1)}K';
     return '$count';
-  }
-
-  void _openChat(BuildContext context) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => PersonalChatScreen(
-          userId: profile.id,
-          name: profile.displayName,
-          avatar: profile.avatarUrl ?? '',
-          isOnline: profile.isOnline,
-        ),
-      ),
-    );
   }
 
   @override
@@ -202,10 +190,8 @@ class UserProfileDetailsWidget extends StatelessWidget {
               if (!isOwnProfile) ...[
                 const SizedBox(height: 14),
                 _ProfileActionButtons(
-                  isFollowing: profile.isFollowing,
+                  profile: profile,
                   onFollowTap: onFollowTap,
-                  onMessageTap: () => _openChat(context),
-                  onSendBoxTap: () {},
                 ),
               ],
             ],
@@ -229,20 +215,101 @@ class UserProfileDetailsWidget extends StatelessWidget {
 }
 
 class _ProfileActionButtons extends StatelessWidget {
-  final bool isFollowing;
+  final UserProfile profile;
   final VoidCallback onFollowTap;
-  final VoidCallback onMessageTap;
-  final VoidCallback onSendBoxTap;
 
   const _ProfileActionButtons({
-    required this.isFollowing,
+    required this.profile,
     required this.onFollowTap,
-    required this.onMessageTap,
-    required this.onSendBoxTap,
   });
+
+  Future<void> _openChat(BuildContext context) async {
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      final conversationId = await ChatService.startDirect(profile.id);
+      if (!context.mounted) return;
+      await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => PersonalChatScreen(
+            userId: profile.id,
+            name: profile.displayName,
+            avatar: profile.avatarUrl ?? '',
+            isOnline: profile.isOnline,
+            conversationId: conversationId,
+          ),
+        ),
+      );
+    } catch (e) {
+      messenger.showSnackBar(
+        SnackBar(content: Text(ChatService.errorMessage(e))),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    final hasAccepted = profile.boxStatus == 'accepted';
+    final hasPending = profile.boxStatus == 'pending';
+    final isReceiver = profile.boxSenderId == profile.id;
+
+    VoidCallback onBoxTap = () {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => SendBoxScreen(
+            targetUserId: profile.id,
+            username: profile.displayName,
+            avatarUrl: profile.avatarUrl ?? '',
+            distance: profile.location ?? 'Nearby',
+          ),
+        ),
+      );
+    };
+
+    String boxLabel = 'Send me a box';
+    IconData boxIcon = Iconsax.box;
+
+    if (hasAccepted) {
+      boxLabel = 'Box Accepted';
+      boxIcon = Iconsax.tick_circle;
+      onBoxTap = () {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('You have already unlocked chat with this user.')),
+        );
+      };
+    } else if (hasPending) {
+      if (isReceiver) {
+        boxLabel = 'Open 🎁';
+        boxIcon = Iconsax.box_add;
+        onBoxTap = () async {
+          await Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => ReceiveBoxScreen(
+                request: {
+                  'id': profile.boxRequestId ?? '',
+                  'sender_id': profile.id,
+                  'sender_username': profile.displayName,
+                  'sender_avatar': profile.avatarUrl,
+                  'coins': 50,
+                  'note': 'Wants to unlock chat with you!',
+                },
+              ),
+            ),
+          );
+        };
+      } else {
+        boxLabel = 'Pending';
+        boxIcon = Iconsax.timer;
+        onBoxTap = () {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Your Box request is pending their acceptance.')),
+          );
+        };
+      }
+    }
+
     return Column(
       children: [
         Row(
@@ -251,22 +318,22 @@ class _ProfileActionButtons extends StatelessWidget {
               child: _ProfileButton(
                 label: 'Message',
                 icon: Iconsax.message,
-                onTap: onMessageTap,
+                onTap: () => _openChat(context),
               ),
             ),
             const SizedBox(width: 8),
             Expanded(
               child: _ProfileButton(
-                label: 'Send me a box',
-                icon: Iconsax.box,
-                onTap: onSendBoxTap,
-                trailingIcon: Icons.auto_awesome_rounded,
+                label: boxLabel,
+                icon: boxIcon,
+                onTap: onBoxTap,
+                trailingIcon: hasAccepted ? null : Icons.auto_awesome_rounded,
               ),
             ),
           ],
         ),
         const SizedBox(height: 8),
-        _FollowButton(isFollowing: isFollowing, onTap: onFollowTap),
+        _FollowButton(isFollowing: profile.isFollowing, onTap: onFollowTap),
       ],
     );
   }

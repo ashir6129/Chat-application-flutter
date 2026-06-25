@@ -2,7 +2,7 @@ import pool, { query } from '../config/db.js';
 
 export async function ensureWallet(userId) {
   await query(
-    `INSERT INTO user_wallets (user_id) VALUES ($1)
+    `INSERT INTO user_wallets (user_id, balance_credits) VALUES ($1, 50)
      ON CONFLICT (user_id) DO NOTHING`,
     [userId],
   );
@@ -25,12 +25,12 @@ export async function sendTip({ senderId, recipientId, postId, tipType, amount }
     await client.query('BEGIN');
 
     await client.query(
-      `INSERT INTO user_wallets (user_id) VALUES ($1)
+      `INSERT INTO user_wallets (user_id, balance_credits) VALUES ($1, 50)
        ON CONFLICT (user_id) DO NOTHING`,
       [senderId],
     );
     await client.query(
-      `INSERT INTO user_wallets (user_id) VALUES ($1)
+      `INSERT INTO user_wallets (user_id, balance_credits) VALUES ($1, 50)
        ON CONFLICT (user_id) DO NOTHING`,
       [recipientId],
     );

@@ -1,22 +1,24 @@
-import admin from 'firebase-admin';
+import { initializeApp, cert, applicationDefault } from 'firebase-admin/app';
+import { getMessaging } from 'firebase-admin/messaging';
 import env from '../config/env.js';
 import { query } from '../config/db.js';
+import { createNotification } from '../models/notification.model.js';
 
 let firebaseInitialized = false;
-
+// ... (rest of initialize block)
 // Attempt to initialize Firebase Admin SDK
 try {
   const serviceAccountVar = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
   if (serviceAccountVar) {
     const serviceAccount = JSON.parse(serviceAccountVar);
-    admin.initializeApp({
-      credential: admin.credential.cert(serviceAccount),
+    initializeApp({
+      credential: cert(serviceAccount),
     });
     firebaseInitialized = true;
     console.log('Firebase Admin SDK initialized successfully via process.env');
   } else if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
-    admin.initializeApp({
-      credential: admin.credential.applicationDefault(),
+    initializeApp({
+      credential: applicationDefault(),
     });
     firebaseInitialized = true;
     console.log('Firebase Admin SDK initialized successfully via GOOGLE_APPLICATION_CREDENTIALS');
@@ -44,6 +46,18 @@ export async function getUserFcmToken(userId) {
 
 export async function sendPushNotification(userId, { title, body, data = {} }) {
   try {
+    // 1. Save notification to database in real-time
+    const senderId = data.sender_id || data.liker_id || data.follower_id || data.commenter_id || data.actor_id || null;
+    const type = data.type || 'system';
+
+    await createNotification({
+      recipientId: userId,
+      senderId,
+      type,
+      message: body,
+      metadata: data,
+    }).catch((err) => console.error('Failed to save notification record to DB:', err.message));
+
     const token = await getUserFcmToken(userId);
     if (!token) {
       console.log(`[Push Notification Simulation] No FCM token found for user ${userId}. Message: "${title}: ${body}"`);
@@ -61,13 +75,22 @@ export async function sendPushNotification(userId, { title, body, data = {} }) {
         title,
         body,
       },
+      android: {
+        priority: 'high',
+        notification: {
+          channelId: 'high_importance_channel',
+          priority: 'max',
+          defaultSound: true,
+          defaultVibrateTimings: true,
+        },
+      },
       data: Object.keys(data).reduce((acc, key) => {
         acc[key] = String(data[key]);
         return acc;
       }, {}),
     };
 
-    const response = await admin.messaging().send(message);
+    const response = await getMessaging().send(message);
     console.log(`Push notification sent successfully to user ${userId}: ${response}`);
     return { success: true, messageId: response };
   } catch (err) {

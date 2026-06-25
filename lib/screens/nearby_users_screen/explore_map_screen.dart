@@ -15,17 +15,21 @@ class _ExploreMapScreenState extends State<ExploreMapScreen> {
   String _selectedLocation = 'Current Location';
   String _displayedLocation = 'Lekki Phase 1, Lagos, Nigeria';
   String _displayedDistance = 'within 3 km';
+  bool _shouldAllowPop = false;
 
   final List<String> _quickLocations = ['Current Location', 'Lagos', 'Lekki', 'Ikeja'];
 
   @override
   Widget build(BuildContext context) {
     return PopScope(
-      canPop: false,
+      canPop: _shouldAllowPop,
       onPopInvokedWithResult: (didPop, result) {
         if (didPop) return;
         final name = _displayedLocation;
         final coords = LocationHelper.locationCoords[name] ?? LocationHelper.locationCoords[_selectedLocation] ?? [6.4281, 3.4219];
+        setState(() {
+          _shouldAllowPop = true;
+        });
         Navigator.pop(context, {
           'location': name,
           'latitude': coords[0],

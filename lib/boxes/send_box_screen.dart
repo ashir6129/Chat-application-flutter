@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../core/app_colors.dart';
 import '../api_services/box_service.dart';
+import '../api_services/tip_service.dart';
 import 'review_box_screen.dart';
 
 class SendBoxScreen extends StatefulWidget {
@@ -36,16 +37,28 @@ class _SendBoxScreenState extends State<SendBoxScreen> {
 
   Future<void> _loadWallet() async {
     try {
-      final balanceData = await BoxService.getWalletBalance();
-      debugPrint("DEBUG: balanceData fetched: $balanceData");
+      int balance = 0;
+      try {
+        final balanceData = await BoxService.getWalletBalance();
+        final balanceVal = balanceData['balance_credits'] ?? balanceData['balance'];
+        if (balanceVal != null) {
+          balance = int.tryParse(balanceVal.toString()) ?? 0;
+        }
+      } catch (e) {
+        debugPrint("DEBUG: BoxService getWalletBalance error: $e");
+      }
+
+      if (balance == 0) {
+        try {
+          balance = await TipService.getBalance();
+        } catch (e) {
+          debugPrint("DEBUG: TipService getBalance error: $e");
+        }
+      }
+
       if (mounted) {
         setState(() {
-          final balanceVal = balanceData['balance_credits'] ?? balanceData['balance'];
-          debugPrint("DEBUG: balanceVal: $balanceVal");
-          _walletBalance = balanceVal != null
-              ? int.tryParse(balanceVal.toString()) ?? 0
-              : 0;
-          debugPrint("DEBUG: parsed _walletBalance: $_walletBalance");
+          _walletBalance = balance;
           _isLoadingWallet = false;
         });
       }

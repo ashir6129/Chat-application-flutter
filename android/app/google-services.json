@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "550799770194",
+    "project_id": "zyntraplus-3b9df",
+    "storage_bucket": "zyntraplus-3b9df.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:550799770194:android:d9dd30dbcd7f578f2f958b",
+        "android_client_info": {
+          "package_name": "com.ecs.zyntraplus"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCM3hf3qjj_BYvLnvhMPbz57EZ_fLLTyAE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -26,6 +26,7 @@ Widget appCachedImage(
     imageUrl: resolved,
     cacheKey: cacheKey,
     cacheManager: AppImageCacheManager.instance,
+    httpHeaders: const {'ngrok-skip-browser-warning': 'true'},
     fit: fit,
     width: width,
     height: height,
@@ -59,6 +60,7 @@ ImageProvider appCachedImageProvider(String url) {
     resolved,
     cacheKey: MediaUrlUtils.cacheKey(resolved),
     cacheManager: AppImageCacheManager.instance,
+    headers: const {'ngrok-skip-browser-warning': 'true'},
   );
 }
 

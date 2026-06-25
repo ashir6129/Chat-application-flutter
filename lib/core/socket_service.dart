@@ -72,6 +72,7 @@ class SocketService {
           .setPath(ApiConfig.socketPath)
           .disableAutoConnect()
           .setAuth({'token': token})
+          .setExtraHeaders({'ngrok-skip-browser-warning': 'true'})
           .build(),
     );
 

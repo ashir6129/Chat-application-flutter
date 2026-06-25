@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:iconsax/iconsax.dart';
-import '../../../../core/app_colors.dart';
+import '../../api_services/notification_service.dart';
+import '../../core/app_colors.dart';
+import '../../core/notification_router.dart';
 
 class NotificationScreen extends StatefulWidget {
   const NotificationScreen({super.key});
@@ -17,58 +19,9 @@ class _NotificationScreenState extends State<NotificationScreen> {
   bool _hasMore = true;
 
   int _page = 1;
-  final int _limit = 6;
+  final int _limit = 15;
 
   final ScrollController _scrollController = ScrollController();
-
-  // Replace with your API data source
-  final List<Map<String, dynamic>> _allNotifications = [
-    {
-      "notification_uid": "1",
-      "type": "like",
-      "message": "liked your post",
-      "is_read": false,
-      "created_at": "2m ago",
-      "section": "New",
-      "actor": {"name": "Aman"}
-    },
-    {
-      "notification_uid": "2",
-      "type": "comment",
-      "message": "commented: Nice pic!",
-      "is_read": false,
-      "created_at": "5m ago",
-      "section": "New",
-      "actor": {"name": "Riya"}
-    },
-    {
-      "notification_uid": "3",
-      "type": "follow",
-      "message": "started following you",
-      "is_read": true,
-      "created_at": "10m ago",
-      "section": "New",
-      "actor": {"name": "Rahul"}
-    },
-    {
-      "notification_uid": "4",
-      "type": "message",
-      "message": "sent you a message",
-      "is_read": true,
-      "created_at": "1h ago",
-      "section": "Earlier",
-      "actor": {"name": "Priya"}
-    },
-    {
-      "notification_uid": "5",
-      "type": "nearby",
-      "message": "is near you",
-      "is_read": true,
-      "created_at": "3h ago",
-      "section": "Earlier",
-      "actor": {"name": "Dev"}
-    },
-  ];
 
   @override
   void initState() {
@@ -76,7 +29,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
     fetchNotifications();
     _scrollController.addListener(() {
       if (_scrollController.position.pixels >=
-          _scrollController.position.maxScrollExtent - 200 &&
+              _scrollController.position.maxScrollExtent - 200 &&
           !_loadingMore &&
           _hasMore) {
         fetchMore();
@@ -91,65 +44,111 @@ class _NotificationScreenState extends State<NotificationScreen> {
   }
 
   Future<void> fetchNotifications() async {
-    await Future.delayed(const Duration(milliseconds: 400));
-    setState(() {
-      _notifications =
-      List<Map<String, dynamic>>.from(_allNotifications.take(_limit));
-      _hasMore = _allNotifications.length > _limit;
-      _loading = false;
-      _page = 1;
-    });
+    try {
+      final res = await NotificationService.getNotifications(page: 1, limit: _limit);
+      if (mounted) {
+        setState(() {
+          _notifications = res['notifications'];
+          _hasMore = _notifications.length >= _limit;
+          _loading = false;
+          _page = 1;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _loading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(NotificationService.errorMessage(e))),
+        );
+      }
+    }
   }
 
   Future<void> fetchMore() async {
     setState(() => _loadingMore = true);
-    await Future.delayed(const Duration(milliseconds: 400));
-    final start = _page * _limit;
-    final end = (start + _limit).clamp(0, _allNotifications.length);
-    final more =
-    List<Map<String, dynamic>>.from(_allNotifications.sublist(start, end));
-    setState(() {
-      _page++;
-      _notifications.addAll(more);
-      _hasMore = _notifications.length < _allNotifications.length;
-      _loadingMore = false;
-    });
+    try {
+      final nextPage = _page + 1;
+      final res = await NotificationService.getNotifications(page: nextPage, limit: _limit);
+      final list = res['notifications'];
+      if (mounted) {
+        setState(() {
+          _page = nextPage;
+          _notifications.addAll(list);
+          _hasMore = list.length >= _limit;
+          _loadingMore = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _loadingMore = false);
+      }
+    }
   }
 
   Future<void> markAllRead() async {
-    setState(() {
-      for (var n in _notifications) {
-        n['is_read'] = true;
+    try {
+      await NotificationService.markAllRead();
+      setState(() {
+        for (var n in _notifications) {
+          n['is_read'] = true;
+        }
+      });
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(NotificationService.errorMessage(e))),
+        );
       }
-    });
+    }
   }
 
-  void markOneRead(String uid) {
-    setState(() {
-      final n =
-      _notifications.firstWhere((n) => n['notification_uid'] == uid);
-      n['is_read'] = true;
-    });
+  Future<void> markOneRead(String uid) async {
+    final notif = _notifications.firstWhere((n) => n['notification_uid'] == uid);
+    if (notif['is_read'] == true) return;
+
+    try {
+      await NotificationService.markRead(uid);
+      setState(() {
+        notif['is_read'] = true;
+      });
+    } catch (e) {
+      // Ignored silently or handled
+    }
   }
 
-  void dismissNotification(String uid) {
-    setState(() {
-      _notifications.removeWhere((n) => n['notification_uid'] == uid);
-    });
+  Future<void> dismissNotification(String uid) async {
+    try {
+      await NotificationService.deleteNotification(uid);
+      setState(() {
+        _notifications.removeWhere((n) => n['notification_uid'] == uid);
+      });
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(NotificationService.errorMessage(e))),
+        );
+      }
+    }
   }
 
   IconData _getIcon(String type) {
     switch (type) {
       case "like":
+      case "comment_like":
         return Iconsax.heart5;
       case "comment":
         return Iconsax.message_text;
       case "follow":
         return Iconsax.user_add;
       case "message":
+      case "chat_message":
         return Iconsax.sms;
       case "nearby":
         return Iconsax.location;
+      case "box_request":
+        return Iconsax.box;
+      case "box_status":
+        return Iconsax.tick_circle;
       default:
         return Iconsax.notification;
     }
@@ -158,15 +157,21 @@ class _NotificationScreenState extends State<NotificationScreen> {
   Color _getColor(String type) {
     switch (type) {
       case "like":
+      case "comment_like":
         return const Color(0xFFD4537E);
       case "comment":
         return const Color(0xFF185FA5);
       case "follow":
         return const Color(0xFF3B6D11);
       case "message":
+      case "chat_message":
         return const Color(0xFFBA7517);
       case "nearby":
         return const Color(0xFF0F6E56);
+      case "box_request":
+        return const Color(0xFF9C27B0);
+      case "box_status":
+        return const Color(0xFF4CAF50);
       default:
         return Colors.grey;
     }
@@ -175,15 +180,21 @@ class _NotificationScreenState extends State<NotificationScreen> {
   Color _getBgColor(String type) {
     switch (type) {
       case "like":
+      case "comment_like":
         return const Color(0xFFFBEAF0);
       case "comment":
         return const Color(0xFFE6F1FB);
       case "follow":
         return const Color(0xFFEAF3DE);
       case "message":
+      case "chat_message":
         return const Color(0xFFFAEEDA);
       case "nearby":
         return const Color(0xFFE1F5EE);
+      case "box_request":
+        return const Color(0xFFF3E5F5);
+      case "box_status":
+        return const Color(0xFFE8F5E9);
       default:
         return Colors.grey.shade100;
     }
@@ -229,8 +240,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
             if (unreadCount > 0) ...[
               const SizedBox(width: 8),
               Container(
-                padding:
-                const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
                 decoration: BoxDecoration(
                   color: const Color(0xFFE24B4A),
                   borderRadius: BorderRadius.circular(20),
@@ -264,11 +274,11 @@ class _NotificationScreenState extends State<NotificationScreen> {
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _notifications.isEmpty
-          ? _buildEmptyState(context)
-          : RefreshIndicator(
-        onRefresh: fetchNotifications,
-        child: _buildList(context, unreadBg),
-      ),
+              ? _buildEmptyState(context)
+              : RefreshIndicator(
+                  onRefresh: fetchNotifications,
+                  child: _buildList(context, unreadBg),
+                ),
     );
   }
 
@@ -347,6 +357,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
 
     return ListView(
       controller: _scrollController,
+      physics: const AlwaysScrollableScrollPhysics(),
       children: rows,
     );
   }
@@ -367,14 +378,15 @@ class _NotificationScreenState extends State<NotificationScreen> {
   }
 
   Widget _buildNotificationTile(
-      BuildContext context,
-      Map<String, dynamic> notif,
-      Color unreadBg,
-      ) {
+    BuildContext context,
+    Map<String, dynamic> notif,
+    Color unreadBg,
+  ) {
     final isRead = notif['is_read'] ?? false;
     final actor = notif['actor'] as Map;
     final type = notif['type'] as String;
     final uid = notif['notification_uid'] as String;
+    final avatarUrl = actor['avatar_url'] as String?;
 
     return Dismissible(
       key: Key(uid),
@@ -387,17 +399,21 @@ class _NotificationScreenState extends State<NotificationScreen> {
       ),
       onDismissed: (_) => dismissNotification(uid),
       child: InkWell(
-        onTap: () => markOneRead(uid),
+        onTap: () {
+          markOneRead(uid);
+          handleNotificationRouting(
+            type: type,
+            data: Map<String, dynamic>.from(notif['metadata'] ?? {}),
+          );
+        },
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
-          color: isRead
-              ? Colors.transparent
-              : unreadBg,
+          color: isRead ? Colors.transparent : unreadBg,
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Avatar
+              // Icon UI
               Container(
                 width: 44,
                 height: 44,

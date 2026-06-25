@@ -39,7 +39,7 @@ class FeedProductAttachmentCard extends StatelessWidget {
             ClipRRect(
               borderRadius:
                   const BorderRadius.vertical(top: Radius.circular(12)),
-              child: Image.network(
+              child: Image.network(headers: const {"ngrok-skip-browser-warning": "true"}, 
                 imageUrl,
                 width: double.infinity,
                 height: 160,
@@ -153,7 +153,7 @@ class FeedBannerAdCard extends StatelessWidget {
               ClipRRect(
                 borderRadius:
                     const BorderRadius.horizontal(left: Radius.circular(12)),
-                child: Image.network(
+                child: Image.network(headers: const {"ngrok-skip-browser-warning": "true"}, 
                   imageUrl!,
                   width: 88,
                   height: 72,

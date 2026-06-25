@@ -476,7 +476,7 @@ class _PhotoCard extends StatelessWidget {
         ),
         child: ClipRRect(
           borderRadius: BorderRadius.circular(18),
-          child: Image.network(
+          child: Image.network(headers: const {"ngrok-skip-browser-warning": "true"}, 
             imageUrl,
             fit: BoxFit.cover,
             errorBuilder: (_, __, ___) => Container(

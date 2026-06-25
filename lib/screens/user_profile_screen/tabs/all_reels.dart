@@ -95,7 +95,7 @@ class UserAllReelsTab extends StatelessWidget {
           child: Stack(
             fit: StackFit.expand,
             children: [
-              Image.network(
+              Image.network(headers: const {"ngrok-skip-browser-warning": "true"}, 
                 reel.thumbnail,
                 fit: BoxFit.cover,
                 errorBuilder: (_, __, ___) => Container(
@@ -252,7 +252,7 @@ class _ReelViewerState extends State<_ReelViewer> {
               return Stack(
                 fit: StackFit.expand,
                 children: [
-                  Image.network(
+                  Image.network(headers: const {"ngrok-skip-browser-warning": "true"}, 
                     reel.thumbnail,
                     fit: BoxFit.cover,
                     errorBuilder: (_, __, ___) => const ColoredBox(
