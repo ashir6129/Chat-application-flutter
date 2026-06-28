@@ -6,6 +6,7 @@ import chatRoutes from './v1/chat.routes.js';
 import tipsRoutes from './v1/tips.routes.js';
 import boxesRoutes from './v1/boxes.routes.js';
 import notificationRoutes from './v1/notification.routes.js';
+import productsRoutes from './v1/products.routes.js';
 
 export default function registerRoutes(app, apiPrefix) {
   app.get(apiPrefix, (_req, res) => {
@@ -25,4 +26,5 @@ export default function registerRoutes(app, apiPrefix) {
   app.use(`${apiPrefix}/tips`, tipsRoutes);
   app.use(`${apiPrefix}/boxes`, boxesRoutes);
   app.use(`${apiPrefix}/notifications`, notificationRoutes);
+  app.use(`${apiPrefix}/products`, productsRoutes);
 }

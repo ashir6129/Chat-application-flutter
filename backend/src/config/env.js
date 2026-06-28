@@ -59,9 +59,9 @@ const env = {
   },
   rateLimit: {
     windowMs: Number(process.env.RATE_LIMIT_WINDOW_MS ?? 15 * 60 * 1000),
-    max: Number(process.env.RATE_LIMIT_MAX ?? 300),
+    max: Number(process.env.RATE_LIMIT_MAX ?? 5000),
     authWindowMs: Number(process.env.AUTH_RATE_LIMIT_WINDOW_MS ?? 15 * 60 * 1000),
-    authMax: Number(process.env.AUTH_RATE_LIMIT_MAX ?? 40),
+    authMax: Number(process.env.AUTH_RATE_LIMIT_MAX ?? 1000),
   },
   socket: {
     path: process.env.SOCKET_PATH ?? '/socket.io',
@@ -73,6 +73,14 @@ const env = {
     suggestionsTtlSeconds: Number(process.env.CACHE_SUGGESTIONS_TTL_SECONDS ?? 120),
     conversationsTtlSeconds: Number(process.env.CACHE_CONVERSATIONS_TTL_SECONDS ?? 30),
     profileTtlSeconds: Number(process.env.CACHE_PROFILE_TTL_SECONDS ?? 180),
+  },
+  email: {
+    host: process.env.SMTP_HOST ?? '',
+    port: Number(process.env.SMTP_PORT ?? 587),
+    secure: process.env.SMTP_SECURE === 'true',   // true = 465, false = 587 STARTTLS
+    user: process.env.SMTP_USER ?? '',
+    pass: process.env.SMTP_PASS ?? '',
+    from: process.env.SMTP_FROM ?? '',            // optional display name override
   },
 };
 

@@ -13,5 +13,6 @@ router.post('/:id/messages', requireAuth, chatController.sendMessage);
 router.post('/:id/read', requireAuth, chatController.markRead);
 router.post('/:id/members', requireAuth, chatController.addMember);
 router.delete('/:id/members/:userId', requireAuth, chatController.removeMember);
+router.delete('/:id', requireAuth, chatController.leaveConversation);
 
 export default router;

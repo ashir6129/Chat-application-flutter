@@ -5,6 +5,22 @@ import { getWallet } from '../models/tip.model.js';
 import { getIO } from '../socket/index.js';
 import { findUserById } from '../models/user.model.js';
 
+// Haversine formula to calculate distance between two coordinates in km
+function calculateDistance(lat1, lon1, lat2, lon2) {
+  const R = 6371; // Earth's radius in km
+  const dLat = toRadians(lat2 - lat1);
+  const dLon = toRadians(lon2 - lon1);
+  const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(toRadians(lat1)) * Math.cos(toRadians(lat2)) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
+
+function toRadians(degrees) {
+  return degrees * (Math.PI / 180);
+}
+
 export const sendBox = asyncHandler(async (req, res) => {
   const { receiver_id, coins, note } = req.body;
   const senderId = req.user.sub;
@@ -21,6 +37,39 @@ export const sendBox = asyncHandler(async (req, res) => {
   // Prevent sending to self
   if (senderId === receiver_id) {
     throw new AppError('You cannot send a box request to yourself', 400);
+  }
+
+  // Check if receiver is nearby (within 50km)
+  const { findUserById } = await import('../models/user.model.js');
+  const sender = await findUserById(senderId);
+  const receiver = await findUserById(receiver_id);
+
+  if (!sender || !receiver) {
+    throw new AppError('User not found', 404);
+  }
+
+  // Import profile functions to get location data
+  const { findProfileByUserId } = await import('../models/user.model.js');
+  const senderProfile = await findProfileByUserId(senderId);
+  const receiverProfile = await findProfileByUserId(receiver_id);
+
+  // Check if both users have location data
+  if (!senderProfile?.latitude || !senderProfile?.longitude || 
+      !receiverProfile?.latitude || !receiverProfile?.longitude) {
+    throw new AppError('Both users must have location enabled to send box requests', 400);
+  }
+
+  // Calculate distance using Haversine formula
+  const distanceKm = calculateDistance(
+    senderProfile.latitude,
+    senderProfile.longitude,
+    receiverProfile.latitude,
+    receiverProfile.longitude
+  );
+
+  // Only allow box requests within 50km
+  if (distanceKm > 50) {
+    throw new AppError('Box requests can only be sent to nearby users (within 50km)', 400);
   }
 
   const result = await boxModel.createBoxRequest({

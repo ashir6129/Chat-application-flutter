@@ -43,6 +43,7 @@ import {
   deleteOtpById,
   markOtpVerified,
 } from '../models/otp.model.js';
+import { sendOtpEmail } from '../utils/email.js';
 
 const SALT_ROUNDS = 12;
 
@@ -80,6 +81,12 @@ async function persistSession(user) {
 }
 
 export async function register({ name, email, password }) {
+  // Strict email format check before hitting the DB
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+  if (!emailRegex.test(email?.trim() ?? '')) {
+    throw new AppError('Please enter a valid email address', 400);
+  }
+
   const existing = await findUserByEmail(email);
   if (existing) {
     throw new AppError('An account with this email already exists', 409);
@@ -105,10 +112,20 @@ export async function register({ name, email, password }) {
     expiresAt,
   });
 
+  // Send real OTP email — if SMTP not configured, falls back to mock
+  const emailSent = await sendOtpEmail({
+    to: email,
+    otp,
+    expiresMinutes: env.otp.expiresMinutes,
+    purpose: 'verification',
+  });
+
   return {
     success: true,
     requires_verification: true,
-    message: 'OTP sent successfully. Verify your email to continue.',
+    message: emailSent
+      ? `Verification code sent to ${email}`
+      : 'OTP sent successfully. Verify your email to continue.',
     reset_token: record.reset_token,
     expires_at: record.expires_at,
     resend_after_seconds: env.otp.resendCooldownSeconds,
@@ -172,6 +189,12 @@ export async function refreshAccessToken(refreshToken) {
 }
 
 export async function forgotPassword({ email }) {
+  // Strict email format check
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+  if (!emailRegex.test(email?.trim() ?? '')) {
+    throw new AppError('Please enter a valid email address', 400);
+  }
+
   const user = await findUserByEmail(email);
 
   if (!user) {
@@ -194,6 +217,14 @@ export async function forgotPassword({ email }) {
     resetToken,
     otpHash: hashOtp(otp),
     expiresAt,
+  });
+
+  // Send real OTP email
+  await sendOtpEmail({
+    to: email,
+    otp,
+    expiresMinutes: env.otp.expiresMinutes,
+    purpose: 'reset',
   });
 
   return {
@@ -234,6 +265,14 @@ export async function resendOtp({ email, resetToken }) {
     otpHash: hashOtp(otp),
     expiresAt,
     resendCount: record.resend_count + 1,
+  });
+
+  // Send real OTP email
+  await sendOtpEmail({
+    to: email,
+    otp,
+    expiresMinutes: env.otp.expiresMinutes,
+    purpose: record.reset_token ? 'verification' : 'reset',
   });
 
   return {

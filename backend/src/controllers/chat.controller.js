@@ -33,6 +33,8 @@ export const createGroup = asyncHandler(async (req, res) => {
   const conversation = await chatService.createGroupConversation(req.user.sub, {
     title: req.body.title,
     memberIds: req.body.member_ids ?? [],
+    kind: req.body.kind ?? 'group',
+    privacy: req.body.privacy ?? 'public',
   });
   res.status(201).json({ success: true, data: { conversation } });
 });
@@ -86,5 +88,10 @@ export const removeMember = asyncHandler(async (req, res) => {
     req.params.id,
     req.params.userId,
   );
+  res.json({ success: true, data: result });
+});
+
+export const leaveConversation = asyncHandler(async (req, res) => {
+  const result = await chatService.leaveConversation(req.user.sub, req.params.id);
   res.json({ success: true, data: result });
 });

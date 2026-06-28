@@ -24,17 +24,25 @@ export async function findDirectConversation(userIdA, userIdB) {
   return result.rows[0] ?? null;
 }
 
-export async function createConversation({ type, title, avatarUrl, createdBy, memberIds, roles = {} }) {
+export async function createConversation({
+  type,
+  title,
+  avatarUrl,
+  createdBy,
+  memberIds,
+  roles = {},
+  metadata = {},
+}) {
   const client = await pool.connect();
 
   try {
     await client.query('BEGIN');
 
     const convResult = await client.query(
-      `INSERT INTO conversations (type, title, avatar_url, created_by)
-       VALUES ($1, $2, $3, $4)
-       RETURNING id, type, title, avatar_url, created_by, last_message_at, created_at`,
-      [type, title ?? null, avatarUrl ?? null, createdBy ?? null],
+      `INSERT INTO conversations (type, title, avatar_url, created_by, metadata)
+       VALUES ($1, $2, $3, $4, $5::jsonb)
+       RETURNING id, type, title, avatar_url, created_by, last_message_at, created_at, metadata`,
+      [type, title ?? null, avatarUrl ?? null, createdBy ?? null, JSON.stringify(metadata ?? {})],
     );
 
     const conversation = convResult.rows[0];
@@ -71,7 +79,7 @@ export async function isConversationMember(conversationId, userId) {
 export async function getConversationById(conversationId, userId) {
   const result = await query(
     `SELECT c.id, c.type, c.title, c.avatar_url, c.created_by, c.last_message_at, c.created_at,
-            cm.role, cm.last_read_at
+            c.metadata, cm.role, cm.last_read_at
      FROM conversations c
      JOIN conversation_members cm ON cm.conversation_id = c.id AND cm.user_id = $2
      WHERE c.id = $1
@@ -83,7 +91,7 @@ export async function getConversationById(conversationId, userId) {
 
 export async function listUserConversations(userId, { limit = 30, offset = 0 }) {
   const result = await query(
-    `SELECT c.id, c.type, c.title, c.avatar_url, c.last_message_at, c.created_at,
+    `SELECT c.id, c.type, c.title, c.avatar_url, c.last_message_at, c.created_at, c.metadata,
             cm.last_read_at,
             (
               SELECT COUNT(*)::int

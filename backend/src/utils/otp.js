@@ -27,7 +27,7 @@ export function secondsUntilResend(lastSentAt) {
 }
 
 export function includeMockOtp(otp) {
-  if (env.nodeEnv === 'production' && !env.otp.mockEnabled) {
+  if (!env.otp.mockEnabled) {
     return {};
   }
 

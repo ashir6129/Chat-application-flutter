@@ -152,7 +152,7 @@ export async function getHomeFeed(userId, { page = 1, limit = 20 }) {
         viewerId: userId,
         page,
         limit,
-        postTypes: ['text', 'image', 'video', 'mixed'],
+        postTypes: ['text', 'image', 'video', 'reel', 'mixed'],
         baseUrl: env.upload.baseUrl,
         followingOnly: true,
       });

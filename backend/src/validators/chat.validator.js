@@ -13,6 +13,14 @@ export function validateGroupChat(body) {
     return 'member_ids must be an array';
   }
 
+  if (body.kind != null && !['group', 'channel'].includes(body.kind)) {
+    return 'kind must be group or channel';
+  }
+
+  if (body.privacy != null && !['public', 'private', 'anonymous'].includes(body.privacy)) {
+    return 'privacy must be public, private, or anonymous';
+  }
+
   return null;
 }
 

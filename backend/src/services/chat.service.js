@@ -51,6 +51,7 @@ function serializeConversation(row, members = []) {
     type: row.type,
     title: row.title,
     avatar_url: row.avatar_url,
+    metadata: row.metadata ?? {},
     last_message_at: row.last_message_at,
     created_at: row.created_at,
     unread_count: row.unread_count ?? 0,
@@ -153,12 +154,12 @@ export async function startDirectConversation(userId, targetUserId) {
   return getConversation(userId, conversation.id);
 }
 
-export async function createGroupConversation(userId, { title, memberIds = [] }) {
+export async function createGroupConversation(userId, { title, memberIds = [], kind = 'group', privacy = 'public' }) {
   if (!title?.trim()) throw new AppError('Group title is required', 400);
 
   const uniqueMembers = [...new Set([userId, ...memberIds])];
-  if (uniqueMembers.length < 2) {
-    throw new AppError('Group requires at least 2 members', 400);
+  if (uniqueMembers.length < 1) {
+    throw new AppError('Group requires at least 1 member', 400);
   }
 
   for (const memberId of uniqueMembers) {
@@ -172,6 +173,10 @@ export async function createGroupConversation(userId, { title, memberIds = [] })
     createdBy: userId,
     memberIds: uniqueMembers,
     roles: { [userId]: 'admin' },
+    metadata: {
+      kind: kind === 'channel' ? 'channel' : 'group',
+      privacy: privacy ?? 'public',
+    },
   });
 
   for (const memberId of uniqueMembers) {
@@ -347,6 +352,22 @@ export async function removeGroupMember(userId, conversationId, memberId) {
   io?.to(`user:${memberId}`).emit('conversation:left', { conversation_id: conversationId });
 
   return { success: true, conversation_id: conversationId, user_id: memberId };
+}
+
+export async function leaveConversation(userId, conversationId) {
+  await assertMember(conversationId, userId);
+  const removed = await removeConversationMember(conversationId, userId);
+  if (!removed) throw new AppError('Could not leave conversation', 404);
+
+  const io = getIO();
+  io?.to(`conversation:${conversationId}`).emit('conversation:member_removed', {
+    conversation_id: conversationId,
+    user_id: userId,
+  });
+  io?.to(`user:${userId}`).emit('conversation:left', { conversation_id: conversationId });
+
+  await invalidateUserConversations(userId);
+  return { success: true, conversation_id: conversationId };
 }
 
 async function assertMember(conversationId, userId) {

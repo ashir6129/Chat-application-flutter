@@ -66,29 +66,105 @@ export async function findBoxRequestBetween(userId1, userId2) {
 }
 
 export async function getReceivedBoxRequests(userId) {
+  // Get user's location first
+  const userResult = await query(
+    `SELECT latitude, longitude FROM profiles WHERE user_id = $1 LIMIT 1`,
+    [userId],
+  );
+  const userProfile = userResult.rows[0];
+
+  let distanceFilter = '';
+  let distanceSelect = '';
+  let joinProfiles = '';
+  let params = [userId];
+
+  // If user has location, filter by nearby users (within 50km)
+  if (userProfile?.latitude && userProfile?.longitude) {
+    distanceSelect = `,
+      (6371 * acos(
+        LEAST(GREATEST(
+          cos(radians($2)) * cos(radians(p.latitude)) * cos(radians(p.longitude) - radians($3)) + 
+          sin(radians($2)) * sin(radians(p.latitude)),
+          -1.0
+        ), 1.0)
+      )) AS distance_km`;
+    distanceFilter = `AND p.latitude IS NOT NULL AND p.longitude IS NOT NULL 
+      AND (6371 * acos(
+        LEAST(GREATEST(
+          cos(radians($2)) * cos(radians(p.latitude)) * cos(radians(p.longitude) - radians($3)) + 
+          sin(radians($2)) * sin(radians(p.latitude)),
+          -1.0
+        ), 1.0)
+      )) <= 50`;
+    joinProfiles = `JOIN profiles p ON p.user_id = u.id`;
+    params = [userId, userProfile.latitude, userProfile.longitude];
+  } else {
+    joinProfiles = `LEFT JOIN profiles p ON p.user_id = u.id`;
+  }
+
   const result = await query(
     `SELECT br.id, br.coins, br.note, br.status, br.created_at,
             u.id AS sender_id, u.username AS sender_username, u.avatar_url AS sender_avatar,
-            u.is_verified AS sender_verified
+            u.is_verified AS sender_verified${distanceSelect}
      FROM box_requests br
      JOIN users u ON u.id = br.sender_id
+     ${joinProfiles}
      WHERE br.receiver_id = $1 AND br.status = 'pending'
+     ${distanceFilter}
      ORDER BY br.created_at DESC`,
-    [userId],
+    params,
   );
   return result.rows;
 }
 
 export async function getSentBoxRequests(userId) {
+  // Get user's location first
+  const userResult = await query(
+    `SELECT latitude, longitude FROM profiles WHERE user_id = $1 LIMIT 1`,
+    [userId],
+  );
+  const userProfile = userResult.rows[0];
+
+  let distanceFilter = '';
+  let distanceSelect = '';
+  let joinProfiles = '';
+  let params = [userId];
+
+  // If user has location, filter by nearby users (within 50km)
+  if (userProfile?.latitude && userProfile?.longitude) {
+    distanceSelect = `,
+      (6371 * acos(
+        LEAST(GREATEST(
+          cos(radians($2)) * cos(radians(p.latitude)) * cos(radians(p.longitude) - radians($3)) + 
+          sin(radians($2)) * sin(radians(p.latitude)),
+          -1.0
+        ), 1.0)
+      )) AS distance_km`;
+    distanceFilter = `AND p.latitude IS NOT NULL AND p.longitude IS NOT NULL 
+      AND (6371 * acos(
+        LEAST(GREATEST(
+          cos(radians($2)) * cos(radians(p.latitude)) * cos(radians(p.longitude) - radians($3)) + 
+          sin(radians($2)) * sin(radians(p.latitude)),
+          -1.0
+        ), 1.0)
+      )) <= 50`;
+    joinProfiles = `JOIN profiles p ON p.user_id = u.id`;
+    params = [userId, userProfile.latitude, userProfile.longitude];
+  } else {
+    joinProfiles = `LEFT JOIN profiles p ON p.user_id = u.id`;
+  }
+
   const result = await query(
     `SELECT br.id, br.coins, br.note, br.status, br.created_at,
             u.id AS receiver_id, u.username AS receiver_username, u.avatar_url AS receiver_avatar,
-            u.is_verified AS receiver_verified
+            u.is_verified AS receiver_verified${distanceSelect}
      FROM box_requests br
      JOIN users u ON u.id = br.receiver_id
+     ${joinProfiles}
      WHERE br.sender_id = $1
+     ${distanceFilter}
      ORDER BY br.created_at DESC`,
-    [userId],
+    params,
   );
   return result.rows;
 }
