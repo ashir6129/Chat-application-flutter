@@ -413,20 +413,57 @@ class _NotificationScreenState extends State<NotificationScreen> {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Icon UI
+              // Avatar UI
               Container(
                 width: 44,
                 height: 44,
                 decoration: BoxDecoration(
-                  color: _getBgColor(type),
                   shape: BoxShape.circle,
-                ),
-                child: Center(
-                  child: Icon(
-                    _getIcon(type),
+                  border: Border.all(
                     color: _getColor(type),
-                    size: 20,
+                    width: 2,
                   ),
+                ),
+                child: ClipOval(
+                  child: avatarUrl != null && avatarUrl!.isNotEmpty
+                      ? Image.network(
+                          avatarUrl!,
+                          width: 44,
+                          height: 44,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) {
+                            return Container(
+                              width: 44,
+                              height: 44,
+                              decoration: BoxDecoration(
+                                color: _getBgColor(type),
+                                shape: BoxShape.circle,
+                              ),
+                              child: Center(
+                                child: Icon(
+                                  _getIcon(type),
+                                  color: _getColor(type),
+                                  size: 20,
+                                ),
+                              ),
+                            );
+                          },
+                        )
+                      : Container(
+                          width: 44,
+                          height: 44,
+                          decoration: BoxDecoration(
+                            color: _getBgColor(type),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Center(
+                            child: Icon(
+                              _getIcon(type),
+                              color: _getColor(type),
+                              size: 20,
+                            ),
+                          ),
+                        ),
                 ),
               ),
               const SizedBox(width: 12),

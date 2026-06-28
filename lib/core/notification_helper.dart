@@ -36,6 +36,9 @@ class NotificationHelper {
   static FirebaseMessaging? _messaging;
   static bool _isInitialized = false;
   
+  /// Global state to suppress notifications for the currently active chat
+  static String? activeConversationId;
+
   static final FlutterLocalNotificationsPlugin _localNotifications =
       FlutterLocalNotificationsPlugin();
 
@@ -114,12 +117,22 @@ class NotificationHelper {
         AndroidNotification? android = message.notification?.android;
 
         if (notification != null) {
+          final type = message.data['type'] as String?;
+          
+          // Only suppress chat/message notifications when the conversation is active
+          if (type == 'message' || type == 'chat_message') {
+            final targetId = message.data['conversation_id']?.toString() ?? message.data['chat_id']?.toString();
+            if (activeConversationId != null && targetId == activeConversationId) {
+               _log("Suppressing notification because chat is active");
+               return;
+            }
+          }
+          
           try {
             InAppNotification.show(
               title: notification.title ?? 'Notification',
               body: notification.body ?? '',
               onTap: () {
-                final type = message.data['type'] as String?;
                 if (type != null) {
                   handleNotificationRouting(type: type, data: message.data);
                 }

@@ -39,11 +39,21 @@ class _AuthScreenState extends State<AuthScreen>
   }
 
   bool get _isLogin => _tabCtrl.index == 0;
-  bool _socialLoading = false;
+  bool _googleLoading = false;
+  bool _appleLoading = false;
 
-  Future<void> _socialSignIn(Future<void> Function() action) async {
-    if (_socialLoading) return;
-    setState(() => _socialLoading = true);
+  Future<void> _socialSignIn(Future<void> Function() action, bool isGoogle) async {
+    if (isGoogle && _googleLoading) return;
+    if (!isGoogle && _appleLoading) return;
+    
+    setState(() {
+      if (isGoogle) {
+        _googleLoading = true;
+      } else {
+        _appleLoading = true;
+      }
+    });
+    
     try {
       await action();
       if (!mounted) return;
@@ -55,7 +65,15 @@ class _AuthScreenState extends State<AuthScreen>
       if (!mounted) return;
       _showError(SocialAuthService.errorMessage(e));
     } finally {
-      if (mounted) setState(() => _socialLoading = false);
+      if (mounted) {
+        setState(() {
+          if (isGoogle) {
+            _googleLoading = false;
+          } else {
+            _appleLoading = false;
+          }
+        });
+      }
     }
   }
 
@@ -203,8 +221,8 @@ class _AuthScreenState extends State<AuthScreen>
                         child: _SocialButton(
                           label: 'Google',
                           icon: Icons.g_mobiledata_rounded,
-                          loading: _socialLoading,
-                          onTap: () => _socialSignIn(SocialAuthService.signInWithGoogle),
+                          loading: _googleLoading,
+                          onTap: () => _socialSignIn(SocialAuthService.signInWithGoogle, true),
                         ),
                       ),
                       const SizedBox(width: 12),
@@ -212,8 +230,8 @@ class _AuthScreenState extends State<AuthScreen>
                         child: _SocialButton(
                           label: 'Apple',
                           icon: Icons.apple,
-                          loading: _socialLoading,
-                          onTap: () => _socialSignIn(SocialAuthService.signInWithApple),
+                          loading: _appleLoading,
+                          onTap: () => _socialSignIn(SocialAuthService.signInWithApple, false),
                         ),
                       ),
                     ],

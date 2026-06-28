@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/app_colors.dart';
+import '../../core/profile_memory_cache.dart';
 import '../create_post/create_story_screen.dart';
 
 class StoriesStrip extends StatelessWidget {
@@ -21,7 +22,7 @@ class StoriesStrip extends StatelessWidget {
     return SizedBox(
       height: _stripHeight,
       child: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
+        padding: const EdgeInsets.fromLTRB(10, 10, 10, 10),
         scrollDirection: Axis.horizontal,
         children: [
           _AddStoryBubble(
@@ -31,10 +32,10 @@ class StoriesStrip extends StatelessWidget {
               MaterialPageRoute(builder: (_) => const CreateStoryScreen()),
             ),
           ),
-          const SizedBox(width: 14),
+          const SizedBox(width: 6),
           ..._storyUsers.map(
             (user) => Padding(
-              padding: const EdgeInsets.only(right: 14),
+              padding: const EdgeInsets.only(right: 6),
               child: _UserStoryBubble(
                 user: user,
                 avatarSize: _avatarSize,
@@ -111,6 +112,7 @@ class _AddStoryBubble extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final accent = AppColors.buttonColor(context);
+    final me = ProfileMemoryCache.me;
 
     return GestureDetector(
       onTap: onTap,
@@ -131,11 +133,27 @@ class _AddStoryBubble extends StatelessWidget {
                 ),
                 color: AppColors.composerBackground(context),
               ),
-              child: Icon(
-                Icons.person_outline_rounded,
-                color: AppColors.secondaryText(context),
-                size: 30,
-              ),
+              child: me?.avatarUrl != null && me!.avatarUrl!.isNotEmpty
+                  ? ClipOval(
+                      child: Image.network(
+                        me.avatarUrl!,
+                        width: avatarSize,
+                        height: avatarSize,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) {
+                          return Icon(
+                            Icons.person_outline_rounded,
+                            color: AppColors.secondaryText(context),
+                            size: 30,
+                          );
+                        },
+                      ),
+                    )
+                  : Icon(
+                      Icons.person_outline_rounded,
+                      color: AppColors.secondaryText(context),
+                      size: 30,
+                    ),
             ),
             Positioned(
               right: 0,

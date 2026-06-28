@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:iconsax/iconsax.dart';
 import '../../core/app_colors.dart';
+import '../../core/profile_memory_cache.dart';
 import '../../new_post_screen.dart';
 import '../my_profile_screen/profile_screen.dart';
 
@@ -11,6 +12,7 @@ class WhatsOnYourMind extends StatelessWidget {
 
   Widget _composerAvatar(BuildContext context) {
     final accent = AppColors.buttonColor(context);
+    final me = ProfileMemoryCache.me;
 
     return Container(
       width: _avatarSize,
@@ -23,10 +25,26 @@ class WhatsOnYourMind extends StatelessWidget {
         ),
         color: AppColors.composerBackground(context),
       ),
-      child: Icon(
-        Icons.person_rounded,
-        color: accent,
-        size: 22,
+      child: ClipOval(
+        child: me?.avatarUrl != null && me!.avatarUrl!.isNotEmpty
+            ? Image.network(
+                me.avatarUrl!,
+                width: _avatarSize,
+                height: _avatarSize,
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) {
+                  return Icon(
+                    Icons.person_rounded,
+                    color: accent,
+                    size: 22,
+                  );
+                },
+              )
+            : Icon(
+                Icons.person_rounded,
+                color: accent,
+                size: 22,
+              ),
       ),
     );
   }

@@ -12,9 +12,9 @@ class ApiConfig {
   ApiConfig._();
 
   static const String productionBaseUrl =
-      'https://profound-friend-implosive.ngrok-free.dev/api/v1';
+      'https://triumphant-bravery-production-4779.up.railway.app/api/v1';
 
-  static const String localBaseUrl = 'http://localhost:4000/api/v1';
+  static const String localBaseUrl = 'http://10.0.2.2:4000/api/v1';
 
   /// Phone/emulator debug: Railway when true. Chrome/web debug always uses [localBaseUrl]
   /// (browser CORS blocks localhost → Railway unless CORS_ORIGIN=* on Railway).
