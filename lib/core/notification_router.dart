@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../api_services/post_services.dart';
 import '../boxes/box_requests_screen.dart';
 import '../screens/user_profile_screen/user_profile_screen.dart';
+import '../screens/message_screen/main_message_screen/personal_chat_screen.dart';
 import '../widgets/feed/feed_photo_viewer.dart';
 import '../widgets/feed/feed_sheets.dart';
 import 'app_navigator.dart';
@@ -14,7 +15,10 @@ void handleNotificationRouting({
   final navState = rootNavigatorKey.currentState;
   if (navState == null || context == null) return;
 
-  if (type == 'like' || type == 'comment' || type == 'comment_like') {
+  // Post-related notifications
+  if (type == 'like' || type == 'comment' || type == 'comment_like' || 
+      type == 'mention' || type == 'tag' || type == 'post_share' || 
+      type == 'new_post_from_following' || type == 'trending_post') {
     final postId = data['post_id'] ?? data['postId'];
     if (postId == null) return;
 
@@ -81,8 +85,10 @@ void handleNotificationRouting({
         );
       }
     }
-  } else if (type == 'follow') {
-    final followerId = data['follower_id'] ?? data['followerId'];
+  } 
+  // Follow-related notifications
+  else if (type == 'follow' || type == 'follow_request') {
+    final followerId = data['follower_id'] ?? data['followerId'] ?? data['actor_id'];
     if (followerId != null) {
       navState.push(
         MaterialPageRoute(
@@ -90,7 +96,40 @@ void handleNotificationRouting({
         ),
       );
     }
-  } else if (type == 'box_request') {
+  } 
+  // Message-related notifications
+  else if (type == 'message' || type == 'group_message' || 
+           type == 'message_voice' || type == 'message_photo' || 
+           type == 'message_video' || type == 'message_reel' || 
+           type == 'message_mention' || type == 'message_reply' || 
+           type == 'message_reaction') {
+    final conversationId = data['conversation_id'] ?? data['chat_id'];
+    if (conversationId != null) {
+      navState.push(
+        MaterialPageRoute(
+          builder: (_) => PersonalChatScreen(
+            conversationId: conversationId.toString(),
+          ),
+        ),
+      );
+    }
+  }
+  // Call-related notifications
+  else if (type == 'voice_call' || type == 'video_call' || type == 'missed_call') {
+    final callerId = data['caller_id'] ?? data['actor_id'];
+    if (callerId != null) {
+      // Navigate to chat with the caller
+      navState.push(
+        MaterialPageRoute(
+          builder: (_) => PersonalChatScreen(
+            userId: callerId.toString(),
+          ),
+        ),
+      );
+    }
+  }
+  // Box-related notifications
+  else if (type == 'box_request') {
     navState.push(
       MaterialPageRoute(
         builder: (_) => const BoxRequestsScreen(initialTab: 0),

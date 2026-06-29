@@ -44,6 +44,8 @@ import {
   markOtpVerified,
 } from '../models/otp.model.js';
 import { sendOtpEmail } from '../utils/email.js';
+import { sendPushNotification } from './notification.service.js';
+import { listFollowers } from '../models/follow.model.js';
 
 const SALT_ROUNDS = 12;
 
@@ -119,6 +121,11 @@ export async function register({ name, email, password }) {
     expiresMinutes: env.otp.expiresMinutes,
     purpose: 'verification',
   });
+
+  // Notify followers that someone they know joined the app
+  // This would typically be done after verification, but we'll do it here for now
+  // In a real implementation, you'd check if the user has connections from other platforms
+  // For now, we'll skip this as it requires additional logic
 
   return {
     success: true,

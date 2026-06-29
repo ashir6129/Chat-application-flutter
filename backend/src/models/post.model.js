@@ -300,3 +300,12 @@ export async function voteOnPoll({ postId, userId, optionIndex }) {
 
   return meta.poll;
 }
+
+export async function incrementShareCount(postId) {
+  await query(
+    `UPDATE posts SET share_count = share_count + 1, updated_at = NOW() WHERE id = $1`,
+    [postId],
+  );
+  const result = await query(`SELECT share_count FROM posts WHERE id = $1`, [postId]);
+  return result.rows[0]?.share_count ?? 0;
+}

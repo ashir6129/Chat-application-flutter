@@ -25,6 +25,9 @@ import {
   addMessageReaction,
   removeMessageReaction,
   getMessageReactions,
+  pinMessage as pinMessageDb,
+  unpinMessage as unpinMessageDb,
+  getPinnedMessages,
 } from '../models/message.model.js';
 import { findUserById } from '../models/user.model.js';
 import env from '../config/env.js';
@@ -262,15 +265,57 @@ export async function sendMessage(userId, conversationId, body, options = {}) {
     const sender = await findUserById(userId);
     const { sendPushNotification } = await import('./notification.service.js');
     if (sender) {
+      const conversation = await getConversationById(conversationId, userId);
+      const isGroup = conversation?.type === 'group';
+      
       for (const recipientId of recipientIds) {
+        let notificationType = 'message';
+        let notificationBody = payload.message_type === 'text' ? payload.body : `Sent a ${payload.message_type}`;
+        
+        // Determine notification type based on message type
+        if (payload.message_type === 'voice') {
+          notificationType = 'message_voice';
+          notificationBody = 'Sent you a voice message';
+        } else if (payload.message_type === 'image') {
+          notificationType = 'message_photo';
+          notificationBody = 'Sent you a photo';
+        } else if (payload.message_type === 'video') {
+          notificationType = 'message_video';
+          notificationBody = 'Sent you a video';
+        } else if (payload.message_type === 'reel') {
+          notificationType = 'message_reel';
+          notificationBody = 'Sent you a reel';
+        }
+        
+        // Check for mentions in message body
+        if (payload.body && payload.message_type === 'text') {
+          const mentionRegex = /@(\w+)/g;
+          const mentions = payload.body.match(mentionRegex);
+          if (mentions && mentions.includes(`@${sender.username}`)) {
+            notificationType = 'message_mention';
+            notificationBody = 'Mentioned you in a message';
+          }
+        }
+        
+        // Check if this is a reply (metadata would contain reply_to info)
+        if (payload.metadata?.reply_to) {
+          notificationType = 'message_reply';
+          notificationBody = 'Replied to your message';
+        }
+        
+        const title = isGroup 
+          ? `${conversation.title || 'Group'} — ${sender.username}`
+          : sender.username;
+        
         await sendPushNotification(recipientId, {
-          title: sender.username,
-          body: payload.message_type === 'text' ? payload.body : `Sent a ${payload.message_type}`,
+          title,
+          body: notificationBody,
           data: {
-            type: 'chat_message',
+            type: isGroup ? 'group_message' : notificationType,
             conversation_id: conversationId,
             message_id: payload.id,
             sender_id: userId,
+            message_type: payload.message_type,
           },
         });
       }
@@ -324,6 +369,28 @@ export async function addReaction(userId, conversationId, messageId, emoji) {
     reactions: reactions,
   });
 
+  // Send push notification to message author if someone else reacted
+  const { getMessageById } = await import('../models/message.model.js');
+  const message = await getMessageById(messageId);
+  if (message && message.sender_id !== userId) {
+    const { sendPushNotification } = await import('./notification.service.js');
+    const reactor = await findUserById(userId);
+    if (reactor) {
+      const reactorName = reactor.username || 'Someone';
+      sendPushNotification(message.sender_id, {
+        title: 'Reaction on Message',
+        body: `${reactorName} reacted to your message`,
+        data: {
+          type: 'message_reaction',
+          conversation_id: conversationId,
+          message_id: messageId,
+          reactor_id: userId,
+          emoji: emoji,
+        },
+      });
+    }
+  }
+
   return { success: true, reaction, reactions };
 }
 
@@ -344,6 +411,43 @@ export async function removeReaction(userId, conversationId, messageId) {
   });
 
   return { success: true, reactions };
+}
+
+export async function pinMessage(userId, conversationId, messageId) {
+  await assertMember(conversationId, userId);
+
+  const pinned = await pinMessageDb(conversationId, messageId, userId);
+  if (!pinned) throw new AppError('Failed to pin message', 500);
+
+  const pinnedMessages = await getPinnedMessages(conversationId, userId);
+  const io = getIO();
+  
+  io?.to(`conversation:${conversationId}`).emit('message:pinned', {
+    conversation_id: conversationId,
+    message_id: messageId,
+    user_id: userId,
+    pinned_messages: pinnedMessages,
+  });
+
+  return { success: true, pinned, pinned_messages };
+}
+
+export async function unpinMessage(userId, conversationId) {
+  await assertMember(conversationId, userId);
+
+  const unpinned = await unpinMessageDb(conversationId, userId);
+  if (!unpinned) throw new AppError('No pinned message found', 404);
+
+  const pinnedMessages = await getPinnedMessages(conversationId, userId);
+  const io = getIO();
+  
+  io?.to(`conversation:${conversationId}`).emit('message:unpinned', {
+    conversation_id: conversationId,
+    user_id: userId,
+    pinned_messages: pinnedMessages,
+  });
+
+  return { success: true, pinned_messages };
 }
 
 export async function markRead(userId, conversationId) {

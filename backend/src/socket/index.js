@@ -12,6 +12,7 @@ import {
 } from '../models/conversation.model.js';
 import * as chatService from '../services/chat.service.js';
 import { isConversationMember } from '../models/conversation.model.js';
+import { sendPushNotification } from '../services/notification.service.js';
 
 let ioInstance = null;
 
@@ -139,16 +140,32 @@ export async function initSocket(httpServer) {
       const peerId = payload?.peer_id;
       if (!peerId) return;
       let callerAvatar = null;
+      let callerUsername = socket.username;
       try {
         const caller = await findUserById(userId);
         callerAvatar = caller?.avatar_url ?? null;
+        callerUsername = caller?.username ?? socket.username;
       } catch (_) {
         /* ignore */
       }
+      
+      // Send push notification for incoming call
+      const callType = payload?.call_type === 'video' ? 'video' : 'voice';
+      sendPushNotification(peerId, {
+        title: callType === 'video' ? 'Video Call' : 'Voice Call',
+        body: `${callerUsername} is calling you`,
+        data: {
+          type: callType === 'video' ? 'video_call' : 'voice_call',
+          caller_id: userId,
+          caller_username: callerUsername,
+          caller_avatar: callerAvatar,
+        },
+      }).catch(err => console.error('Failed to send call notification:', err.message));
+      
       socket.to(`user:${peerId}`).emit('call:offer', {
         ...payload,
         caller_id: userId,
-        caller_username: socket.username,
+        caller_username: callerUsername,
         caller_avatar: callerAvatar,
       });
     });
@@ -174,6 +191,19 @@ export async function initSocket(httpServer) {
     socket.on('call:end', (payload) => {
       const toId = payload?.to_id;
       if (!toId) return;
+      
+      // Send missed call notification if call ended without being answered
+      // This would typically be tracked on the client side, but we can send a notification here
+      sendPushNotification(toId, {
+        title: 'Missed Call',
+        body: `${socket.username} called you`,
+        data: {
+          type: 'missed_call',
+          caller_id: userId,
+          caller_username: socket.username,
+        },
+      }).catch(err => console.error('Failed to send missed call notification:', err.message));
+      
       socket.to(`user:${toId}`).emit('call:end', {
         from_id: userId,
       });
@@ -182,6 +212,18 @@ export async function initSocket(httpServer) {
     socket.on('call:reject', (payload) => {
       const callerId = payload?.caller_id;
       if (!callerId) return;
+      
+      // Send missed call notification to caller
+      sendPushNotification(callerId, {
+        title: 'Missed Call',
+        body: `${socket.username} declined your call`,
+        data: {
+          type: 'missed_call',
+          caller_id: userId,
+          caller_username: socket.username,
+        },
+      }).catch(err => console.error('Failed to send missed call notification:', err.message));
+      
       socket.to(`user:${callerId}`).emit('call:reject', {
         rejecter_id: userId,
       });

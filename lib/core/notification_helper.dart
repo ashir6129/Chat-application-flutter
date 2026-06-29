@@ -27,7 +27,64 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
       ),
     );
   } catch (_) {}
+  
   _log("Handling a background message: ${message.messageId} - ${message.notification?.title}");
+  
+  // Show local notification for background/killed state
+  RemoteNotification? notification = message.notification;
+  AndroidNotification? android = message.notification?.android;
+  
+  if (notification != null && android != null) {
+    const AndroidInitializationSettings initializationSettingsAndroid =
+        AndroidInitializationSettings('@mipmap/ic_launcher');
+    const InitializationSettings initializationSettings = InitializationSettings(
+      android: initializationSettingsAndroid,
+    );
+    
+    final FlutterLocalNotificationsPlugin localNotifications = FlutterLocalNotificationsPlugin();
+    await localNotifications.initialize(settings: initializationSettings);
+    
+    const AndroidNotificationChannel channel = AndroidNotificationChannel(
+      'high_importance_channel',
+      'High Importance Notifications',
+      description: 'This channel is used for important notifications.',
+      importance: Importance.max,
+      playSound: true,
+      enableVibration: true,
+    );
+    
+    await localNotifications
+        .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
+        ?.createNotificationChannel(channel);
+    
+    await localNotifications.show(
+      notification.hashCode,
+      notification.title,
+      notification.body,
+      NotificationDetails(
+        android: AndroidNotificationDetails(
+          channel.id,
+          channel.name,
+          channelDescription: channel.description,
+          icon: '@mipmap/ic_launcher',
+          importance: Importance.max,
+          priority: Priority.high,
+          playSound: true,
+          enableVibration: true,
+          fullScreenIntent: true,
+          color: const Color(0xFF7C3AED),
+          styleInformation: BigTextStyleInformation(
+            notification.body ?? '',
+            contentTitle: notification.title,
+          ),
+          ledColor: const Color(0xFF7C3AED),
+          ledOnMs: 1000,
+          ledOffMs: 1000,
+        ),
+      ),
+      payload: message.data.toString(),
+    );
+  }
 }
 
 class NotificationHelper {

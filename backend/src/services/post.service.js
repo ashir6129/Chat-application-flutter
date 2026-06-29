@@ -20,6 +20,7 @@ import {
   updatePostCaption,
   setPostArchived,
   voteOnPoll,
+  incrementShareCount,
 } from '../models/post.model.js';
 import { resolveMediaList, resolvePublicUrl, toStoredMediaPath } from '../utils/mediaUrl.js';
 
@@ -111,6 +112,69 @@ export async function createUserPost(userId, body) {
   await invalidateAllReelsCaches();
   await invalidateUserFeedCache(userId);
 
+  // Check for mentions in caption and send notifications
+  if (full.caption) {
+    const mentionRegex = /@(\w+)/g;
+    const mentions = full.caption.match(mentionRegex);
+    if (mentions) {
+      const { findUserByUsername } = await import('../models/user.model.js');
+      for (const mention of mentions) {
+        const username = mention.substring(1);
+        try {
+          const mentionedUser = await findUserByUsername(username);
+          if (mentionedUser && mentionedUser.id !== userId) {
+            findUserById(userId).then((author) => {
+              if (author) {
+                const authorName = author.username || 'Someone';
+                sendPushNotification(mentionedUser.id, {
+                  title: 'Mentioned in Post',
+                  body: `${authorName} mentioned you in a post`,
+                  data: {
+                    type: 'mention',
+                    post_id: full.id,
+                    mentioner_id: userId,
+                  },
+                });
+              }
+            });
+          }
+        } catch (err) {
+          console.error(`Failed to find user for mention @${username}:`, err.message);
+        }
+      }
+    }
+  }
+
+  // Check for tags in post metadata and send notifications
+  if (postMeta.tagged_users && Array.isArray(postMeta.tagged_users)) {
+    const { findUserById } = await import('../models/user.model.js');
+    for (const taggedUserId of postMeta.tagged_users) {
+      if (taggedUserId !== userId) {
+        try {
+          const taggedUser = await findUserById(taggedUserId);
+          if (taggedUser) {
+            findUserById(userId).then((author) => {
+              if (author) {
+                const authorName = author.username || 'Someone';
+                sendPushNotification(taggedUser.id, {
+                  title: 'Tagged in Post',
+                  body: `${authorName} tagged you in a post`,
+                  data: {
+                    type: 'tag',
+                    post_id: full.id,
+                    tagger_id: userId,
+                  },
+                });
+              }
+            });
+          }
+        } catch (err) {
+          console.error(`Failed to find tagged user ${taggedUserId}:`, err.message);
+        }
+      }
+    }
+  }
+
   // Send push notifications to followers asynchronously
   Promise.all([
     findUserById(userId),
@@ -124,7 +188,7 @@ export async function createUserPost(userId, body) {
           title: 'New Post',
           body: `${authorName} shared a new ${postTypeLabel}`,
           data: {
-            type: 'post',
+            type: 'new_post_from_following',
             post_id: full.id,
             post_type: full.post_type,
             author_id: userId,
@@ -202,12 +266,14 @@ export async function likePost(userId, postId) {
     findUserById(userId).then((liker) => {
       if (liker) {
         const likerName = liker.username || 'Someone';
+        const postTypeLabel = post.post_type === 'reel' ? 'reel' : post.post_type === 'image' ? 'photo' : 'post';
         sendPushNotification(post.user_id, {
           title: 'New Like',
-          body: `${likerName} liked your post`,
+          body: `${likerName} liked your ${postTypeLabel}`,
           data: {
             type: 'like',
             post_id: postId,
+            post_type: post.post_type,
             liker_id: userId,
           },
         });
@@ -253,4 +319,43 @@ export async function castPollVote(userId, postId, optionIndex) {
 
   const meta = enrichPollMeta({ poll }, userId);
   return meta.poll;
+}
+
+export async function sharePost(userId, postId) {
+  const post = await findPostById(postId, userId, env.upload.baseUrl);
+  if (!post) throw new AppError('Post not found', 404);
+
+  await incrementShareCount(postId);
+
+  // Send notification to post author if someone else shares the post
+  if (post.user_id !== userId) {
+    findUserById(userId).then((sharer) => {
+      if (sharer) {
+        const sharerName = sharer.username || 'Someone';
+        sendPushNotification(post.user_id, {
+          title: 'Post Shared',
+          body: `${sharerName} shared your post`,
+          data: {
+            type: 'post_share',
+            post_id: postId,
+            sharer_id: userId,
+          },
+        });
+      }
+    }).catch((err) => console.error('Failed to send share push notification:', err.message));
+  }
+
+  // Check if post is trending (high engagement) and notify author
+  if (post.like_count > 100 || post.share_count > 50) {
+    sendPushNotification(post.user_id, {
+      title: 'Your Post is Trending',
+      body: 'Your post is getting more attention',
+      data: {
+        type: 'trending_post',
+        post_id: postId,
+      },
+    }).catch((err) => console.error('Failed to send trending post notification:', err.message));
+  }
+
+  return { success: true, share_count: post.share_count + 1 };
 }

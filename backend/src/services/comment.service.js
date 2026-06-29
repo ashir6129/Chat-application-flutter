@@ -123,6 +123,61 @@ export async function addComment(userId, postId, { body, parentId = null }) {
     }
   }).catch((err) => console.error('Failed to send comment push notification:', err.message));
 
+  // Check for mentions in comment and send notifications
+  const mentionRegex = /@(\w+)/g;
+  const mentions = body.match(mentionRegex);
+  if (mentions) {
+    const { findUserByUsername } = await import('../models/user.model.js');
+    for (const mention of mentions) {
+      const username = mention.substring(1);
+      try {
+        const mentionedUser = await findUserByUsername(username);
+        if (mentionedUser && mentionedUser.id !== userId) {
+          findUserById(userId).then((commenter) => {
+            if (commenter) {
+              const commenterName = commenter.username || 'Someone';
+              sendPushNotification(mentionedUser.id, {
+                title: 'Mentioned in Comment',
+                body: `${commenterName} mentioned you in a comment`,
+                data: {
+                  type: 'mention',
+                  post_id: postId,
+                  comment_id: row.id,
+                  mentioner_id: userId,
+                },
+              });
+            }
+          });
+        }
+      } catch (err) {
+        console.error(`Failed to find user for mention @${username}:`, err.message);
+      }
+    }
+  }
+
+  // Send notification to parent comment author if this is a reply
+  if (parentId) {
+    const parentComment = await getCommentById(parentId);
+    if (parentComment && parentComment.user_id !== userId) {
+      findUserById(userId).then((replier) => {
+        if (replier) {
+          const replierName = replier.username || 'Someone';
+          sendPushNotification(parentComment.user_id, {
+            title: 'Reply to Comment',
+            body: `${replierName} replied to your comment: "${body.substring(0, 30)}${body.length > 30 ? '...' : ''}"`,
+            data: {
+              type: 'comment_reply',
+              post_id: postId,
+              comment_id: row.id,
+              parent_comment_id: parentId,
+              replier_id: userId,
+            },
+          });
+        }
+      });
+    }
+  }
+
   return {
     comment: serializeComment(row, []),
     comment_count: commentCount,
