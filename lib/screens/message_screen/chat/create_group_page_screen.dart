@@ -117,10 +117,18 @@ class _CreateGroupPageScreenState extends State<CreateGroupPageScreen> {
     if (!_canCreate || _creating) return;
     setState(() => _creating = true);
     try {
+      print('[CreateGroup] Creating $_entity with privacy: ${_privacy.name}');
+      print('[CreateGroup] Members: ${_selected.toList()}');
+      
       final conversationId = await ChatService.createGroup(
         title: _nameCtrl.text.trim(),
         memberIds: _selected.toList(),
+        kind: _isPage ? 'channel' : 'group',
+        privacy: _privacy.name,
       );
+      
+      print('[CreateGroup] Success! Conversation ID: $conversationId');
+      
       if (!mounted) return;
       Navigator.pop(context, {
         'type': _isPage ? 'page' : 'group',
@@ -130,6 +138,7 @@ class _CreateGroupPageScreenState extends State<CreateGroupPageScreen> {
         'conversation_id': conversationId,
       });
     } catch (e) {
+      print('[CreateGroup] Error: $e');
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(ChatService.errorMessage(e))),
@@ -820,13 +829,28 @@ void showCreateChatSheet(BuildContext context) {
                   ),
                 );
                 if (result != null && context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(
-                        'Page "${result['name']}" created · ${result['privacy']}',
+                  final conversationId = result['conversation_id']?.toString();
+                  if (conversationId != null && conversationId.isNotEmpty) {
+                    await Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => GroupChatScreen(
+                          groupId: conversationId,
+                          name: result['name']?.toString() ?? 'Page',
+                          memberCount: ((result['members'] as List?)?.length ?? 0) + 1,
+                          isAnonymous: result['privacy']?.toString() == 'anonymous',
+                        ),
                       ),
-                    ),
-                  );
+                    );
+                  } else {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          'Page "${result['name']}" created · ${result['privacy']}',
+                        ),
+                      ),
+                    );
+                  }
                 }
               },
             ),
