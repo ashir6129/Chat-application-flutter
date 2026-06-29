@@ -50,9 +50,10 @@ class NotificationHelper {
     'high_importance_channel',
     'High Importance Notifications',
     description: 'This channel is used for important notifications.',
-    importance: Importance.max,
+    importance: Importance.high,
     playSound: true,
     enableVibration: true,
+    showBadge: true,
   );
 
   static Future<void> init() async {
@@ -116,6 +117,7 @@ class NotificationHelper {
 
       FirebaseMessaging.onMessage.listen((RemoteMessage message) {
         _log("Foreground notification message: ${message.notification?.title}");
+        _log("Message data: ${message.data}");
         
         RemoteNotification? notification = message.notification;
         AndroidNotification? android = message.notification?.android;
@@ -124,14 +126,52 @@ class NotificationHelper {
           final type = message.data['type'] as String?;
           
           // Only suppress chat/message notifications when the conversation is active
-          if (type == 'message' || type == 'chat_message') {
+          if (type == 'message' || type == 'chat_message' || type == 'group_message' ||
+              type == 'message_voice' || type == 'message_photo' || type == 'message_video' ||
+              type == 'message_reel' || type == 'message_mention' || type == 'message_reply' ||
+              type == 'message_reaction') {
             final targetId = message.data['conversation_id']?.toString() ?? message.data['chat_id']?.toString();
+            _log("Checking active conversation: activeConversationId=$activeConversationId, targetId=$targetId");
             if (activeConversationId != null && targetId == activeConversationId) {
                _log("Suppressing notification because chat is active");
                return;
             }
           }
           
+          // Always show local notification for foreground messages
+          _log("Showing local notification for foreground message");
+          _localNotifications.show(
+            id: notification.hashCode,
+            title: notification.title,
+            body: notification.body,
+            notificationDetails: NotificationDetails(
+              android: AndroidNotificationDetails(
+                _channel.id,
+                _channel.name,
+                channelDescription: _channel.description,
+                icon: '@mipmap/ic_launcher',
+                importance: Importance.high,
+                priority: Priority.high,
+                playSound: true,
+                enableVibration: true,
+                showWhen: true,
+                category: AndroidNotificationCategory.message,
+                styleInformation: BigTextStyleInformation(
+                  notification.body ?? '',
+                  contentTitle: notification.title,
+                  htmlFormatBigText: true,
+                  htmlFormatTitle: true,
+                ),
+                ledColor: const Color(0xFF7C3AED),
+                ledOnMs: 1000,
+                ledOffMs: 1000,
+                ticker: notification.title,
+              ),
+            ),
+            payload: message.data.toString(),
+          );
+          
+          // Also show in-app banner
           try {
             InAppNotification.show(
               title: notification.title ?? 'Notification',
@@ -145,36 +185,6 @@ class NotificationHelper {
           } catch (e) {
             _log("Failed to show in-app banner: $e");
           }
-        }
-
-        if (notification != null && android != null) {
-          _localNotifications.show(
-            id: notification.hashCode,
-            title: notification.title,
-            body: notification.body,
-            notificationDetails: NotificationDetails(
-              android: AndroidNotificationDetails(
-                _channel.id,
-                _channel.name,
-                channelDescription: _channel.description,
-                icon: '@mipmap/ic_launcher',
-                importance: Importance.max,
-                priority: Priority.high,
-                playSound: true,
-                enableVibration: true,
-                fullScreenIntent: true,
-                color: const Color(0xFF7C3AED),
-                styleInformation: BigTextStyleInformation(
-                  notification.body ?? '',
-                  contentTitle: notification.title,
-                ),
-                ledColor: const Color(0xFF7C3AED),
-                ledOnMs: 1000,
-                ledOffMs: 1000,
-              ),
-            ),
-            payload: message.data.toString(),
-          );
         }
       });
 

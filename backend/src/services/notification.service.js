@@ -114,9 +114,22 @@ export async function sendPushNotification(userId, { title, body, data = {} }) {
         priority: 'high',
         notification: {
           channelId: 'high_importance_channel',
-          priority: 'max',
+          priority: 'high',
           defaultSound: true,
           defaultVibrateTimings: true,
+          visibility: 'public',
+        },
+      },
+      apns: {
+        payload: {
+          aps: {
+            alert: {
+              title,
+              body,
+            },
+            sound: 'default',
+            badge: 1,
+          },
         },
       },
       data: Object.keys(data).reduce((acc, key) => {
