@@ -93,12 +93,14 @@ export async function listUserConversations(userId, { limit = 30, offset = 0 }) 
   const result = await query(
     `SELECT c.id, c.type, c.title, c.avatar_url, c.last_message_at, c.created_at, c.metadata,
             cm.last_read_at,
-            (
-              SELECT COUNT(*)::int
-              FROM messages m
-              WHERE m.conversation_id = c.id
-                AND m.sender_id <> $1
-                AND m.created_at > COALESCE(cm.last_read_at, '1970-01-01'::timestamptz)
+            COALESCE(
+              (SELECT COUNT(*)::int
+               FROM messages m
+               WHERE m.conversation_id = c.id
+                 AND m.sender_id <> $1
+                 AND m.created_at > COALESCE(cm.last_read_at, '1970-01-01'::timestamptz)
+               LIMIT 1),
+              0
             ) AS unread_count,
             (
               SELECT row_to_json(last_msg)

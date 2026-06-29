@@ -108,11 +108,21 @@ class _ConversationsListViewState extends State<ConversationsListView> {
   }
 
   Future<void> _load({bool silent = false}) async {
+    // Always show cached data immediately for instant feel
     if (!silent && _conversations.isEmpty) {
-      setState(() {
-        _loading = true;
-        _error = null;
-      });
+      final cached = ChatService.getCachedConversations(limit: 30);
+      if (cached != null && cached.isNotEmpty) {
+        setState(() {
+          _conversations = cached;
+          _loading = false;
+          _error = null;
+        });
+      } else {
+        setState(() {
+          _loading = true;
+          _error = null;
+        });
+      }
     }
 
     try {
@@ -123,7 +133,7 @@ class _ConversationsListViewState extends State<ConversationsListView> {
         }
       });
 
-      final conversations = await ChatService.getConversations(limit: 50);
+      final conversations = await ChatService.getConversations(limit: 30);
       ChatMemoryCache.save(items: conversations, userId: _currentUserId);
 
       if (!mounted) return;
@@ -136,7 +146,7 @@ class _ConversationsListViewState extends State<ConversationsListView> {
       await ChannelService.syncFromConversations(conversations);
     } catch (e) {
       if (!mounted) return;
-      final cached = ChatService.getCachedConversations(limit: 50);
+      final cached = ChatService.getCachedConversations(limit: 30);
       setState(() {
         _loading = false;
         if (cached != null && cached.isNotEmpty) {
