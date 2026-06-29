@@ -45,15 +45,22 @@ class _FeedVideoPreviewState extends State<FeedVideoPreview> {
         : const ColorFilter.mode(Colors.transparent, BlendMode.dst);
 
     return AspectRatio(
-      aspectRatio: _initialized ? _controller!.value.aspectRatio : 16 / 9,
+      aspectRatio: 9 / 16,
       child: Stack(
-        alignment: Alignment.center,
+        fit: StackFit.expand,
         children: [
           Container(color: Colors.black),
           if (_initialized)
-            ColorFiltered(
-              colorFilter: filter,
-              child: VideoPlayer(_controller!),
+            FittedBox(
+              fit: BoxFit.cover,
+              child: SizedBox(
+                width: _controller!.value.size.width,
+                height: _controller!.value.size.height,
+                child: ColorFiltered(
+                  colorFilter: filter,
+                  child: VideoPlayer(_controller!),
+                ),
+              ),
             )
           else
             const CircularProgressIndicator(strokeWidth: 2),
