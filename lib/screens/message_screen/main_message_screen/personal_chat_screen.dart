@@ -21,6 +21,10 @@ import '../chat/chat_attach_sheet.dart';
 import '../../../../core/call_service.dart';
 import '../../../../core/call_permissions.dart';
 import '../../../../core/call_ui.dart';
+import '../../../../core/notification_helper.dart';
+import '../../../../core/secure_storage_service.dart';
+import '../../../../core/offline_cache_service.dart';
+import '../../user_profile_screen/user_profile_screen.dart';
 
 class PersonalChatScreen extends StatefulWidget {
   final String userId;
@@ -57,12 +61,15 @@ class _PersonalChatScreenState extends State<PersonalChatScreen> {
   DateTime? _peerLastSeen;
   Timer? _refreshTimer;
   Timer? _typingTimer;
+  DateTime? _lastTypingStart;
+  String? _pinnedMessageId;
   StreamSubscription<Map<String, dynamic>>? _socketSub;
   StreamSubscription<Map<String, dynamic>>? _typingStartSub;
   StreamSubscription<Map<String, dynamic>>? _typingStopSub;
   StreamSubscription<Map<String, dynamic>>? _receiptSub;
   StreamSubscription<Map<String, dynamic>>? _readSub;
   StreamSubscription<Map<String, dynamic>>? _presenceSub;
+  StreamSubscription<void>? _connectedSub;
 
   final List<_UiMessage> _messages = [];
 
@@ -79,11 +86,20 @@ class _PersonalChatScreenState extends State<PersonalChatScreen> {
   void _onInputChanged() {
     if (_conversationId == null || _conversationId!.isEmpty) return;
     if (_inputController.text.isNotEmpty) {
-      SocketService.sendTypingStart(_conversationId!);
+      final now = DateTime.now();
+      if (_lastTypingStart == null || now.difference(_lastTypingStart!).inSeconds > 2) {
+        SocketService.sendTypingStart(_conversationId!);
+        _lastTypingStart = now;
+      }
       _typingTimer?.cancel();
       _typingTimer = Timer(const Duration(seconds: 3), () {
         SocketService.sendTypingStop(_conversationId!);
+        _lastTypingStart = null;
       });
+    } else {
+      SocketService.sendTypingStop(_conversationId!);
+      _typingTimer?.cancel();
+      _lastTypingStart = null;
     }
   }
 
@@ -93,15 +109,17 @@ class _PersonalChatScreenState extends State<PersonalChatScreen> {
     _peerUserId = widget.userId;
 
     if (_currentUserId == null) {
-      // Must fetch from network before showing any messages
-      setState(() => _loading = true);
-      try {
-        final me = await UserService.getMe();
-        _currentUserId = me.id;
-        ProfileMemoryCache.saveProfile(me);
-      } catch (_) {
-        if (mounted) setState(() => _loading = false);
-        return;
+      _currentUserId = await SecureStorageService.getUserUid();
+      if (_currentUserId == null) {
+        setState(() => _loading = true);
+        try {
+          final me = await UserService.getMe();
+          _currentUserId = me.id;
+          ProfileMemoryCache.saveProfile(me);
+        } catch (_) {
+          if (mounted) setState(() => _loading = false);
+          return;
+        }
       }
     }
 
@@ -126,6 +144,10 @@ class _PersonalChatScreenState extends State<PersonalChatScreen> {
       if (_conversationId == null || _conversationId!.isEmpty) {
         _conversationId = await ChatService.startDirect(widget.userId);
       }
+      
+      _pinnedMessageId = OfflineCacheService.getJson('pinned_$_conversationId')?.toString();
+
+      NotificationHelper.activeConversationId = _conversationId;
 
       // Start socket and presence in background
       SocketService.connect().then((_) => SocketService.joinConversation(_conversationId!));
@@ -140,6 +162,7 @@ class _PersonalChatScreenState extends State<PersonalChatScreen> {
       _receiptSub?.cancel();
       _readSub?.cancel();
       _presenceSub?.cancel();
+      _connectedSub?.cancel();
       
       _socketSub = SocketService.onMessage.listen(_onSocketMessage);
       _typingStartSub = SocketService.onTypingStart.listen(_onTypingStartEvent);
@@ -147,6 +170,11 @@ class _PersonalChatScreenState extends State<PersonalChatScreen> {
       _receiptSub = SocketService.onMessageReceipts.listen(_onReceiptUpdate);
       _readSub = SocketService.onMessageRead.listen(_onReadUpdate);
       _presenceSub = SocketService.onPresenceChanged.listen(_onPresenceChanged);
+      _connectedSub = SocketService.onConnected.listen((_) {
+        if (_conversationId != null && _conversationId!.isNotEmpty) {
+          SocketService.joinConversation(_conversationId!);
+        }
+      });
       
       // Mark existing messages as read when opening the chat screen
       if (_conversationId != null && _conversationId!.isNotEmpty) {
@@ -264,6 +292,7 @@ class _PersonalChatScreenState extends State<PersonalChatScreen> {
   Future<void> _loadMessages({bool silent = false}) async {
     if (_conversationId == null || _conversationId!.isEmpty) return;
 
+    // Show cached messages immediately for instant feel
     if (!silent && _messages.isEmpty) {
       final cached = ChatService.getCachedMessages(_conversationId!);
       if (cached != null && cached.isNotEmpty) {
@@ -279,15 +308,23 @@ class _PersonalChatScreenState extends State<PersonalChatScreen> {
     }
 
     try {
-      final messages = await ChatService.getMessages(_conversationId!);
+      final messages = await ChatService.getMessages(_conversationId!, limit: 30);
       if (!mounted) return;
-      setState(() {
-        _messages
-          ..clear()
-          ..addAll(messages.map(_mapApiMessage));
-        _loading = false;
-      });
-      _scrollToEnd();
+      
+      final newMessages = messages.map(_mapApiMessage).toList();
+      
+      // If we already have the exact same number of messages and the latest is the same, do nothing to avoid flicker
+      if (_messages.isNotEmpty && newMessages.isNotEmpty && _messages.last.id == newMessages.last.id && _messages.length == newMessages.length) {
+         setState(() => _loading = false);
+      } else {
+        setState(() {
+          _messages
+            ..clear()
+            ..addAll(newMessages);
+          _loading = false;
+        });
+        _scrollToEnd();
+      }
     } catch (_) {
       if (!silent && mounted && _messages.isEmpty) setState(() => _loading = false);
     }
@@ -556,10 +593,12 @@ class _PersonalChatScreenState extends State<PersonalChatScreen> {
     _receiptSub?.cancel();
     _readSub?.cancel();
     _presenceSub?.cancel();
+    _connectedSub?.cancel();
     _inputController.removeListener(_onInputChanged);
     if (_conversationId != null && _conversationId!.isNotEmpty) {
       SocketService.leaveConversation(_conversationId!);
     }
+    NotificationHelper.activeConversationId = null;
     _inputController.dispose();
     _scrollController.dispose();
     super.dispose();
@@ -582,57 +621,68 @@ class _PersonalChatScreenState extends State<PersonalChatScreen> {
           icon: const Icon(Iconsax.arrow_left, color: Colors.white),
           onPressed: () => Navigator.pop(context),
         ),
-        title: Row(
-          children: [
-            Stack(
-              children: [
-                CircleAvatar(
-                  radius: 18,
-                  backgroundImage: appCachedImageProvider(avatar),
-                ),
-                if (_peerOnline)
-                  Positioned(
-                    bottom: 0,
-                    right: 0,
-                    child: Container(
-                      width: 10,
-                      height: 10,
-                      decoration: BoxDecoration(
-                        color: Colors.green,
-                        shape: BoxShape.circle,
-                        border: Border.all(color: ChatTheme.barBackground, width: 1.5),
+        title: GestureDetector(
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => UserProfileScreen(userId: widget.userId),
+              ),
+            );
+          },
+          behavior: HitTestBehavior.opaque,
+          child: Row(
+            children: [
+              Stack(
+                children: [
+                  CircleAvatar(
+                    radius: 18,
+                    backgroundImage: appCachedImageProvider(avatar),
+                  ),
+                  if (_peerOnline)
+                    Positioned(
+                      bottom: 0,
+                      right: 0,
+                      child: Container(
+                        width: 10,
+                        height: 10,
+                        decoration: BoxDecoration(
+                          color: Colors.green,
+                          shape: BoxShape.circle,
+                          border: Border.all(color: ChatTheme.barBackground, width: 1.5),
+                        ),
                       ),
                     ),
-                  ),
-              ],
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    widget.name,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
-                    ),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  Text(
-                    _presenceLabel,
-                    style: TextStyle(
-                      color: _isPeerTyping ? accent : (_peerOnline ? accent : ChatTheme.mutedText),
-                      fontSize: _isPeerTyping ? 13 : 11,
-                      fontStyle: _isPeerTyping ? FontStyle.italic : FontStyle.normal,
-                    ),
-                    overflow: TextOverflow.ellipsis,
-                  ),
                 ],
               ),
-            ),
-          ],
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      widget.name,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    Text(
+                      _presenceLabel,
+                      style: TextStyle(
+                        color: _isPeerTyping ? accent : (_peerOnline ? accent : ChatTheme.mutedText),
+                        fontSize: _isPeerTyping ? 13 : 11,
+                        fontStyle: _isPeerTyping ? FontStyle.italic : FontStyle.normal,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
         actions: [
           IconButton(
@@ -651,6 +701,7 @@ class _PersonalChatScreenState extends State<PersonalChatScreen> {
       ),
       body: Column(
         children: [
+          if (_pinnedMessageId != null) _buildPinnedBar(accent),
           Expanded(
             child: _loading
                 ? const Center(child: CircularProgressIndicator())
@@ -690,6 +741,9 @@ class _PersonalChatScreenState extends State<PersonalChatScreen> {
                               );
                             },
                             onPin: () {
+                              if (_conversationId == null) return;
+                              setState(() => _pinnedMessageId = msg.id);
+                              OfflineCacheService.setJson('pinned_$_conversationId', msg.id);
                               ScaffoldMessenger.of(context).showSnackBar(
                                 const SnackBar(
                                   content: Text('Message pinned'),
@@ -752,6 +806,48 @@ class _PersonalChatScreenState extends State<PersonalChatScreen> {
           ),
           GestureDetector(
             onTap: () => setState(() => _replyingTo = null),
+            child: const Icon(Icons.close, color: ChatTheme.mutedText, size: 18),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPinnedBar(Color accent) {
+    final msg = _messages.cast<_UiMessage?>().firstWhere(
+          (m) => m?.id == _pinnedMessageId,
+          orElse: () => null,
+        );
+    final text = msg?.text ?? 'Pinned Message';
+    
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      color: ChatTheme.barBackground,
+      child: Row(
+        children: [
+          Container(width: 3, height: 36, color: accent),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Pinned Message', style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600)),
+                Text(
+                  text,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(color: ChatTheme.mutedText, fontSize: 12),
+                ),
+              ],
+            ),
+          ),
+          GestureDetector(
+            onTap: () {
+              if (_conversationId != null) {
+                OfflineCacheService.remove('pinned_$_conversationId');
+              }
+              setState(() => _pinnedMessageId = null);
+            },
             child: const Icon(Icons.close, color: ChatTheme.mutedText, size: 18),
           ),
         ],

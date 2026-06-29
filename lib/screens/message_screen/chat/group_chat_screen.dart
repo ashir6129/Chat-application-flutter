@@ -157,8 +157,23 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
   }
 
   Future<void> _loadMessages({bool silent = false}) async {
+    // Show cached messages immediately for instant feel
+    if (!silent && _messages.isEmpty) {
+      final cached = ChatService.getCachedMessages(widget.groupId);
+      if (cached != null && cached.isNotEmpty) {
+        if (!mounted) return;
+        setState(() {
+          _messages
+            ..clear()
+            ..addAll(cached.map(_mapApiMessage));
+          _loading = false;
+        });
+        _scrollToEnd();
+      }
+    }
+
     try {
-      final messages = await ChatService.getMessages(widget.groupId);
+      final messages = await ChatService.getMessages(widget.groupId, limit: 30);
       if (!mounted) return;
       setState(() {
         _messages
@@ -640,9 +655,9 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                       builder: (_) => AddGroupMemberScreen(
                         groupId: widget.groupId,
                         groupName: widget.name,
-                        creatorId: creator.userId,
-                        creatorName: creator.displayName,
-                        creatorAvatar: creator.avatarUrl,
+                        creatorId: creator?.userId,
+                        creatorName: creator?.displayName,
+                        creatorAvatar: creator?.avatarUrl,
                         currentMemberIds: _conversation?.members.map((m) => m.userId).toList() ?? [],
                       ),
                     ),
