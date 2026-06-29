@@ -437,6 +437,14 @@ class _PersonalChatScreenState extends State<PersonalChatScreen> {
     _inputController.clear();
     SocketService.sendTypingStop(_conversationId!);
 
+    final replyMetadata = _replyingTo != null ? {
+      'reply_to': {
+        'message_id': _replyingTo!['message_id'],
+        'text': _replyingTo!['text'],
+        'sender_id': _replyingTo!['sender_id'],
+      }
+    } : null;
+
     final tempMsg = _UiMessage(
       id: 'temp_${DateTime.now().millisecondsSinceEpoch}',
       text: text,
@@ -452,7 +460,11 @@ class _PersonalChatScreenState extends State<PersonalChatScreen> {
     _scrollToEnd();
 
     try {
-      final sent = await ChatService.sendMessage(_conversationId!, text);
+      final sent = await ChatService.sendMessage(
+        _conversationId!,
+        text,
+        metadata: replyMetadata,
+      );
       if (!mounted) return;
       setState(() {
         // Remove the temp message regardless of whether socket already added the real one
@@ -508,7 +520,11 @@ class _PersonalChatScreenState extends State<PersonalChatScreen> {
   }
 
   void _setReply(_UiMessage msg) {
-    setState(() => _replyingTo = {'text': msg.text});
+    setState(() => _replyingTo = {
+      'text': msg.text,
+      'message_id': msg.id,
+      'sender_id': msg.isMine ? _currentUserId : _peerUserId,
+    });
   }
 
   String _callErrorMessage(Object error, bool isVideo) {
@@ -753,6 +769,7 @@ class _PersonalChatScreenState extends State<PersonalChatScreen> {
                             },
                             onUnsend: () => _unsendMessage(msg.id),
                             onSilent: () => _sendSilentMessage(msg.text),
+                            onForward: () => _forwardMessage(msg),
                           );
                         },
                       ),
@@ -896,6 +913,73 @@ class _PersonalChatScreenState extends State<PersonalChatScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Failed to send: ${ChatService.errorMessage(e)}')),
       );
+    }
+  }
+
+  Future<void> _forwardMessage(_UiMessage msg) async {
+    // Show conversation picker for forwarding
+    final conversations = await ChatService.getConversations(limit: 50);
+    if (!mounted) return;
+    
+    final selectedConversation = await showModalBottomSheet<ChatConversation>(
+      context: context,
+      builder: (ctx) => Container(
+        height: 400,
+        color: Colors.grey[900],
+        child: Column(
+          children: [
+            const Padding(
+              padding: EdgeInsets.all(16),
+              child: Text(
+                'Forward to...',
+                style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+            ),
+            Expanded(
+              child: ListView.builder(
+                itemCount: conversations.length,
+                itemBuilder: (context, index) {
+                  final conv = conversations[index];
+                  return ListTile(
+                    title: Text(
+                      conv.title ?? 'Unknown',
+                      style: const TextStyle(color: Colors.white),
+                    ),
+                    onTap: () {
+                      Navigator.pop(ctx, conv);
+                    },
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+    
+    if (selectedConversation != null && mounted) {
+      try {
+        await ChatService.sendMessage(
+          selectedConversation.id,
+          msg.text,
+          messageType: 'text',
+          metadata: {
+            'forwarded_from': {
+              'message_id': msg.id,
+              'sender_id': msg.isMine ? _currentUserId : _peerUserId,
+            }
+          },
+        );
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Message forwarded')),
+        );
+      } catch (e) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to forward: ${ChatService.errorMessage(e)}')),
+        );
+      }
     }
   }
 }
