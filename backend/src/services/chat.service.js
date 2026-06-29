@@ -22,6 +22,9 @@ import {
   getMemberIds,
   updateReceiptStatus,
   deleteMessage,
+  addMessageReaction,
+  removeMessageReaction,
+  getMessageReactions,
 } from '../models/message.model.js';
 import { findUserById } from '../models/user.model.js';
 import env from '../config/env.js';
@@ -302,6 +305,45 @@ export async function unsendMessage(userId, conversationId, messageId) {
   }
 
   return { success: true, message_id: messageId };
+}
+
+export async function addReaction(userId, conversationId, messageId, emoji) {
+  await assertMember(conversationId, userId);
+
+  const reaction = await addMessageReaction(messageId, userId, emoji);
+  if (!reaction) throw new AppError('Failed to add reaction', 500);
+
+  const reactions = await getMessageReactions(messageId);
+  const io = getIO();
+  
+  io?.to(`conversation:${conversationId}`).emit('message:reaction', {
+    message_id: messageId,
+    conversation_id: conversationId,
+    user_id: userId,
+    emoji: emoji,
+    reactions: reactions,
+  });
+
+  return { success: true, reaction, reactions };
+}
+
+export async function removeReaction(userId, conversationId, messageId) {
+  await assertMember(conversationId, userId);
+
+  const removed = await removeMessageReaction(messageId, userId);
+  if (!removed) throw new AppError('Reaction not found', 404);
+
+  const reactions = await getMessageReactions(messageId);
+  const io = getIO();
+  
+  io?.to(`conversation:${conversationId}`).emit('message:reaction_removed', {
+    message_id: messageId,
+    conversation_id: conversationId,
+    user_id: userId,
+    reactions: reactions,
+  });
+
+  return { success: true, reactions };
 }
 
 export async function markRead(userId, conversationId) {

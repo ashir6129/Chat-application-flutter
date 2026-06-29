@@ -145,3 +145,37 @@ export async function getMemberIds(conversationId) {
   );
   return result.rows.map(row => row.user_id);
 }
+
+export async function addMessageReaction(messageId, userId, emoji) {
+  const result = await query(
+    `INSERT INTO message_reactions (message_id, user_id, emoji)
+     VALUES ($1, $2, $3)
+     ON CONFLICT (message_id, user_id) 
+     DO UPDATE SET emoji = $3, created_at = NOW()
+     RETURNING message_id, user_id, emoji, created_at`,
+    [messageId, userId, emoji],
+  );
+  return result.rows[0] ?? null;
+}
+
+export async function removeMessageReaction(messageId, userId) {
+  const result = await query(
+    `DELETE FROM message_reactions
+     WHERE message_id = $1 AND user_id = $2
+     RETURNING message_id, user_id`,
+    [messageId, userId],
+  );
+  return result.rows[0] ?? null;
+}
+
+export async function getMessageReactions(messageId) {
+  const result = await query(
+    `SELECT mr.emoji, mr.user_id, u.username
+     FROM message_reactions mr
+     JOIN users u ON u.id = mr.user_id
+     WHERE mr.message_id = $1
+     ORDER BY mr.created_at DESC`,
+    [messageId],
+  );
+  return result.rows;
+}

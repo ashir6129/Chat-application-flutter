@@ -748,14 +748,7 @@ class _PersonalChatScreenState extends State<PersonalChatScreen> {
                             voiceDuration: msg.voiceDuration,
                             conversationId: _conversationId,
                             onReply: () => _setReply(msg),
-                            onReaction: (emoji) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text('Reacted with $emoji'),
-                                  duration: const Duration(seconds: 1),
-                                ),
-                              );
-                            },
+                            onReaction: (emoji) => _addReaction(msg.id, emoji),
                             onPin: () {
                               if (_conversationId == null) return;
                               setState(() => _pinnedMessageId = msg.id);
@@ -980,6 +973,23 @@ class _PersonalChatScreenState extends State<PersonalChatScreen> {
           SnackBar(content: Text('Failed to forward: ${ChatService.errorMessage(e)}')),
         );
       }
+    }
+  }
+
+  Future<void> _addReaction(String messageId, String emoji) async {
+    if (_conversationId == null || _conversationId!.isEmpty) return;
+    
+    try {
+      await ChatService.addReaction(_conversationId!, messageId, emoji);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Reacted with $emoji'), duration: const Duration(seconds: 1)),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to react: ${ChatService.errorMessage(e)}')),
+      );
     }
   }
 }

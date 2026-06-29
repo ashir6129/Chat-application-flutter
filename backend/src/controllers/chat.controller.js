@@ -55,6 +55,19 @@ export const unsendMessage = asyncHandler(async (req, res) => {
   res.json({ success: true, data: result });
 });
 
+export const addReaction = asyncHandler(async (req, res) => {
+  const { messageId } = req.params;
+  const { emoji } = req.body;
+  const result = await chatService.addReaction(req.user.sub, req.params.id, messageId, emoji);
+  res.json({ success: true, data: result });
+});
+
+export const removeReaction = asyncHandler(async (req, res) => {
+  const { messageId } = req.params;
+  const result = await chatService.removeReaction(req.user.sub, req.params.id, messageId);
+  res.json({ success: true, data: result });
+});
+
 export const sendMessage = asyncHandler(async (req, res) => {
   const error = chatValidator.validateSendMessage(req.body);
   if (error) throw new AppError(error, 400);

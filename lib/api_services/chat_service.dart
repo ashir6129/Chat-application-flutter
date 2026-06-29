@@ -304,6 +304,19 @@ class ChatService {
     );
   }
 
+  static Future<void> addReaction(String conversationId, String messageId, String emoji) async {
+    await ApiMethods.authorizedPost(
+      'conversations/$conversationId/messages/$messageId/reactions',
+      {'emoji': emoji},
+    );
+  }
+
+  static Future<void> removeReaction(String conversationId, String messageId) async {
+    await ApiMethods.authorizedDelete(
+      'conversations/$conversationId/messages/$messageId/reactions',
+    );
+  }
+
   static Future<void> markRead(String conversationId) async {
     await ApiMethods.authorizedPost('conversations/$conversationId/read', {});
     await SocketService.markConversationRead(conversationId);

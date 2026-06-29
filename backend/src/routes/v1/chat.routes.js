@@ -12,6 +12,8 @@ router.get('/:id/messages', requireAuth, chatController.listMessages);
 router.post('/:id/messages', requireAuth, chatController.sendMessage);
 router.post('/:id/read', requireAuth, chatController.markRead);
 router.delete('/:id/messages/:messageId', requireAuth, chatController.unsendMessage);
+router.post('/:id/messages/:messageId/reactions', requireAuth, chatController.addReaction);
+router.delete('/:id/messages/:messageId/reactions', requireAuth, chatController.removeReaction);
 router.post('/:id/members', requireAuth, chatController.addMember);
 router.delete('/:id/members/:userId', requireAuth, chatController.removeMember);
 router.delete('/:id', requireAuth, chatController.leaveConversation);
