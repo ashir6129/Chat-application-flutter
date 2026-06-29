@@ -730,6 +730,7 @@ class _PersonalChatScreenState extends State<PersonalChatScreen> {
                       )
                     : ListView.builder(
                         controller: _scrollController,
+                        reverse: true,
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                         itemCount: _messages.length + 1,
                         itemBuilder: (context, i) {
@@ -749,20 +750,11 @@ class _PersonalChatScreenState extends State<PersonalChatScreen> {
                             conversationId: _conversationId,
                             onReply: () => _setReply(msg),
                             onReaction: (emoji) => _addReaction(msg.id, emoji),
-                            onPin: () {
-                              if (_conversationId == null) return;
-                              setState(() => _pinnedMessageId = msg.id);
-                              OfflineCacheService.setJson('pinned_$_conversationId', msg.id);
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('Message pinned'),
-                                  duration: Duration(seconds: 1),
-                                ),
-                              );
-                            },
+                            onPin: () => _pinMessage(msg.id),
                             onUnsend: () => _unsendMessage(msg.id),
                             onSilent: () => _sendSilentMessage(msg.text),
                             onForward: () => _forwardMessage(msg),
+                            onEffect: (effect) => _sendMessageWithEffect(msg.text, effect),
                           );
                         },
                       ),
@@ -989,6 +981,46 @@ class _PersonalChatScreenState extends State<PersonalChatScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Failed to react: ${ChatService.errorMessage(e)}')),
+      );
+    }
+  }
+
+  Future<void> _pinMessage(String messageId) async {
+    if (_conversationId == null || _conversationId!.isEmpty) return;
+    
+    try {
+      await ChatService.pinMessage(_conversationId!, messageId);
+      if (!mounted) return;
+      setState(() => _pinnedMessageId = messageId);
+      OfflineCacheService.setJson('pinned_$_conversationId', messageId);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Message pinned'), duration: Duration(seconds: 1)),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to pin: ${ChatService.errorMessage(e)}')),
+      );
+    }
+  }
+
+  Future<void> _sendMessageWithEffect(String text, String effect) async {
+    if (_conversationId == null || _conversationId!.isEmpty) return;
+    
+    try {
+      await ChatService.sendMessageWithEffect(
+        _conversationId!,
+        text,
+        effect: effect,
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Sent with $effect effect'), duration: const Duration(seconds: 1)),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to send: ${ChatService.errorMessage(e)}')),
       );
     }
   }

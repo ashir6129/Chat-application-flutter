@@ -2,7 +2,7 @@ import { initializeApp, cert, applicationDefault } from 'firebase-admin/app';
 import { getMessaging } from 'firebase-admin/messaging';
 import env from '../config/env.js';
 import { query } from '../config/db.js';
-import { createNotification } from '../models/notification.model.js';
+import { createNotification, shouldSendNotification } from '../models/notification.model.js';
 
 let firebaseInitialized = false;
 // ... (rest of initialize block)
@@ -46,9 +46,17 @@ export async function getUserFcmToken(userId) {
 
 export async function sendPushNotification(userId, { title, body, data = {} }) {
   try {
+    const type = data.type || 'system';
+
+    // Check if user has enabled this notification type
+    const shouldSend = await shouldSendNotification(userId, type);
+    if (!shouldSend) {
+      console.log(`[Push Notification Skipped] User ${userId} has disabled ${type} notifications`);
+      return { success: false, reason: 'user_disabled' };
+    }
+
     // 1. Save notification to database in real-time
     const senderId = data.sender_id || data.liker_id || data.follower_id || data.commenter_id || data.actor_id || null;
-    const type = data.type || 'system';
 
     await createNotification({
       recipientId: userId,

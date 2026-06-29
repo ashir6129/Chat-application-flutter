@@ -248,7 +248,7 @@ class ChatService {
 
   static Future<List<ChatMessage>> getMessages(
     String conversationId, {
-    int limit = 50,
+    int limit = 30,
   }) async {
     final cacheKey = _messagesCacheKey(conversationId);
     try {
@@ -298,6 +298,33 @@ class ChatService {
     return ChatMessage.fromApi(message);
   }
 
+  static Future<ChatMessage> sendMessageWithEffect(
+    String conversationId,
+    String body, {
+    String messageType = 'text',
+    Map<String, dynamic>? metadata,
+    String? effect, // 'confetti', 'fireworks', 'hearts', etc.
+  }) async {
+    final payload = <String, dynamic>{
+      'body': body,
+      'message_type': messageType,
+    };
+    if (metadata != null) {
+      payload['metadata'] = metadata;
+    }
+    if (effect != null) {
+      payload['metadata'] = {...?metadata, 'effect': effect};
+    }
+    
+    final data = await ApiMethods.authorizedPost(
+      'conversations/$conversationId/messages',
+      payload,
+    );
+    final message = data['data']?['message'] as Map<String, dynamic>?;
+    if (message == null) throw ApiException('Failed to send message');
+    return ChatMessage.fromApi(message);
+  }
+
   static Future<void> unsendMessage(String conversationId, String messageId) async {
     await ApiMethods.authorizedDelete(
       'conversations/$conversationId/messages/$messageId',
@@ -314,6 +341,19 @@ class ChatService {
   static Future<void> removeReaction(String conversationId, String messageId) async {
     await ApiMethods.authorizedDelete(
       'conversations/$conversationId/messages/$messageId/reactions',
+    );
+  }
+
+  static Future<void> pinMessage(String conversationId, String messageId) async {
+    await ApiMethods.authorizedPost(
+      'conversations/$conversationId/messages/$messageId/pin',
+      {},
+    );
+  }
+
+  static Future<void> unpinMessage(String conversationId) async {
+    await ApiMethods.authorizedDelete(
+      'conversations/$conversationId/messages/pin',
     );
   }
 

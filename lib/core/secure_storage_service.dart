@@ -1,5 +1,7 @@
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
+import 'notification_helper.dart';
+
 class SecureStorageService {
   static const _storage = FlutterSecureStorage(
     webOptions: WebOptions(
@@ -48,6 +50,8 @@ class SecureStorageService {
 
   /// Logout
   static Future<void> logout() async {
+    // Delete FCM token from backend before clearing local storage
+    await NotificationHelper.deleteFcmToken();
     await _storage.deleteAll();
   }
 }

@@ -193,6 +193,12 @@ class NotificationHelper {
           });
         }
       });
+
+      // Listen for token refresh
+      FirebaseMessaging.instance.onTokenRefresh.listen((String newToken) {
+        _log("FCM Token refreshed: $newToken");
+        registerFcmToken();
+      });
     } catch (e) {
       _log("Firebase initialization bypassed/failed (standard without JSON config): $e");
     }
@@ -256,6 +262,17 @@ class NotificationHelper {
       });
     } catch (e) {
       _log('Failed to register FCM token with API: $e');
+    }
+  }
+
+  static Future<void> deleteFcmToken() async {
+    try {
+      _log('Deleting FCM Token from API');
+      await ApiMethods.authorizedPut('users/me/fcm-token', {
+        'fcm_token': null,
+      });
+    } catch (e) {
+      _log('Failed to delete FCM token from API: $e');
     }
   }
 }

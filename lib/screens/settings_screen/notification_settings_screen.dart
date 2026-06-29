@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:iconsax/iconsax.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../../../core/app_colors.dart';
 
 class NotificationSettingsScreen extends StatefulWidget {
@@ -22,15 +23,80 @@ class _NotificationSettingsScreenState
   bool _mentions = true;
   bool _newFollowers = true;
   bool _followRequests = true;
+  bool _tags = true;
 
   // ── Messages ──────────────────────────────────────────────────────────────
   bool _directMessages = true;
+  bool _groupMessages = true;
   bool _messageRequests = true;
+
+  // ── Stories ───────────────────────────────────────────────────────────────
+  bool _storyReplies = true;
+  bool _storyReactions = true;
+  bool _storyMentions = true;
+
+  // ── Calls ────────────────────────────────────────────────────────────────
+  bool _voiceCalls = true;
+  bool _videoCalls = true;
 
   // ── Posts & Creator ───────────────────────────────────────────────────────
   bool _postShares = false;
   bool _tips = true;
   bool _newPostFromFollowing = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPreferences();
+  }
+
+  Future<void> _loadPreferences() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _pushEnabled = prefs.getBool('push_enabled') ?? true;
+      _likes = prefs.getBool('likes') ?? true;
+      _comments = prefs.getBool('comments') ?? true;
+      _commentLikes = prefs.getBool('comment_likes') ?? false;
+      _mentions = prefs.getBool('mentions') ?? true;
+      _newFollowers = prefs.getBool('new_followers') ?? true;
+      _followRequests = prefs.getBool('follow_requests') ?? true;
+      _tags = prefs.getBool('tags') ?? true;
+      _directMessages = prefs.getBool('direct_messages') ?? true;
+      _groupMessages = prefs.getBool('group_messages') ?? true;
+      _messageRequests = prefs.getBool('message_requests') ?? true;
+      _storyReplies = prefs.getBool('story_replies') ?? true;
+      _storyReactions = prefs.getBool('story_reactions') ?? true;
+      _storyMentions = prefs.getBool('story_mentions') ?? true;
+      _voiceCalls = prefs.getBool('voice_calls') ?? true;
+      _videoCalls = prefs.getBool('video_calls') ?? true;
+      _postShares = prefs.getBool('post_shares') ?? false;
+      _tips = prefs.getBool('tips') ?? true;
+      _newPostFromFollowing = prefs.getBool('new_post_from_following') ?? false;
+    });
+  }
+
+  Future<void> _savePreferences() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('push_enabled', _pushEnabled);
+    await prefs.setBool('likes', _likes);
+    await prefs.setBool('comments', _comments);
+    await prefs.setBool('comment_likes', _commentLikes);
+    await prefs.setBool('mentions', _mentions);
+    await prefs.setBool('new_followers', _newFollowers);
+    await prefs.setBool('follow_requests', _followRequests);
+    await prefs.setBool('tags', _tags);
+    await prefs.setBool('direct_messages', _directMessages);
+    await prefs.setBool('group_messages', _groupMessages);
+    await prefs.setBool('message_requests', _messageRequests);
+    await prefs.setBool('story_replies', _storyReplies);
+    await prefs.setBool('story_reactions', _storyReactions);
+    await prefs.setBool('story_mentions', _storyMentions);
+    await prefs.setBool('voice_calls', _voiceCalls);
+    await prefs.setBool('video_calls', _videoCalls);
+    await prefs.setBool('post_shares', _postShares);
+    await prefs.setBool('tips', _tips);
+    await prefs.setBool('new_post_from_following', _newPostFromFollowing);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -73,7 +139,10 @@ class _NotificationSettingsScreenState
             subtitle: 'When someone likes your post',
             value: _likes && _pushEnabled,
             enabled: _pushEnabled,
-            onChanged: (v) => setState(() => _likes = v),
+            onChanged: (v) async {
+              setState(() => _likes = v);
+              await _savePreferences();
+            },
           ),
           _ToggleTile(
             icon: Iconsax.message,
@@ -81,7 +150,10 @@ class _NotificationSettingsScreenState
             subtitle: 'When someone comments on your post',
             value: _comments && _pushEnabled,
             enabled: _pushEnabled,
-            onChanged: (v) => setState(() => _comments = v),
+            onChanged: (v) async {
+              setState(() => _comments = v);
+              await _savePreferences();
+            },
           ),
           _ToggleTile(
             icon: Iconsax.heart_circle,
@@ -89,7 +161,10 @@ class _NotificationSettingsScreenState
             subtitle: 'When someone likes your comment',
             value: _commentLikes && _pushEnabled,
             enabled: _pushEnabled,
-            onChanged: (v) => setState(() => _commentLikes = v),
+            onChanged: (v) async {
+              setState(() => _commentLikes = v);
+              await _savePreferences();
+            },
           ),
           _ToggleTile(
             icon: Iconsax.tag,
@@ -97,7 +172,10 @@ class _NotificationSettingsScreenState
             subtitle: 'When someone mentions you',
             value: _mentions && _pushEnabled,
             enabled: _pushEnabled,
-            onChanged: (v) => setState(() => _mentions = v),
+            onChanged: (v) async {
+              setState(() => _mentions = v);
+              await _savePreferences();
+            },
           ),
           _ToggleTile(
             icon: Iconsax.user_add,
@@ -105,7 +183,10 @@ class _NotificationSettingsScreenState
             subtitle: 'When someone follows you',
             value: _newFollowers && _pushEnabled,
             enabled: _pushEnabled,
-            onChanged: (v) => setState(() => _newFollowers = v),
+            onChanged: (v) async {
+              setState(() => _newFollowers = v);
+              await _savePreferences();
+            },
           ),
           _ToggleTile(
             icon: Iconsax.people,
@@ -113,50 +194,163 @@ class _NotificationSettingsScreenState
             subtitle: 'When someone requests to follow you',
             value: _followRequests && _pushEnabled,
             enabled: _pushEnabled,
-            onChanged: (v) => setState(() => _followRequests = v),
+            onChanged: (v) async {
+              setState(() => _followRequests = v);
+              await _savePreferences();
+            },
+          ),
+          _ToggleTile(
+            icon: Iconsax.tag,
+            label: 'Tags',
+            subtitle: 'When someone tags you in a post',
+            value: _tags && _pushEnabled,
+            enabled: _pushEnabled,
+            onChanged: (v) async {
+              setState(() => _tags = v);
+              await _savePreferences();
+            },
           ),
 
-          // const SizedBox(height: 24),
+          const SizedBox(height: 24),
 
-          // // ── Messages ──────────────────────────────────────────────────────
-          // _SectionHeader(label: 'Messages'),
-          // _ToggleTile(
-          //   icon: Iconsax.message_text,
-          //   label: 'Direct Messages',
-          //   subtitle: 'When you receive a new message',
-          //   value: _directMessages && _pushEnabled,
-          //   enabled: _pushEnabled,
-          //   onChanged: (v) => setState(() => _directMessages = v),
-          // ),
-          // _ToggleTile(
-          //   icon: Iconsax.message_add,
-          //   label: 'Message Requests',
-          //   subtitle: 'When someone new messages you',
-          //   value: _messageRequests && _pushEnabled,
-          //   enabled: _pushEnabled,
-          //   onChanged: (v) => setState(() => _messageRequests = v),
-          // ),
-          //
-          // const SizedBox(height: 24),
-          //
-          // // ── Creator & Posts ───────────────────────────────────────────────
-          // _SectionHeader(label: 'Creator & Posts'),
-          // _ToggleTile(
-          //   icon: Icons.monetization_on_outlined,
-          //   label: 'Tips Received',
-          //   subtitle: 'When someone tips you',
-          //   value: _tips && _pushEnabled,
-          //   enabled: _pushEnabled,
-          //   onChanged: (v) => setState(() => _tips = v),
-          // ),
-          // _ToggleTile(
-          //   icon: Iconsax.notification,
-          //   label: 'New Posts from Following',
-          //   subtitle: 'When someone you follow posts',
-          //   value: _newPostFromFollowing && _pushEnabled,
-          //   enabled: _pushEnabled,
-          //   onChanged: (v) => setState(() => _newPostFromFollowing = v),
-          // ),
+          // ── Messages ──────────────────────────────────────────────────────
+          _SectionHeader(label: 'Messages'),
+          _ToggleTile(
+            icon: Iconsax.message_text,
+            label: 'Direct Messages',
+            subtitle: 'When you receive a new message',
+            value: _directMessages && _pushEnabled,
+            enabled: _pushEnabled,
+            onChanged: (v) async {
+              setState(() => _directMessages = v);
+              await _savePreferences();
+            },
+          ),
+          _ToggleTile(
+            icon: Iconsax.people,
+            label: 'Group Messages',
+            subtitle: 'When someone messages in a group',
+            value: _groupMessages && _pushEnabled,
+            enabled: _pushEnabled,
+            onChanged: (v) async {
+              setState(() => _groupMessages = v);
+              await _savePreferences();
+            },
+          ),
+          _ToggleTile(
+            icon: Iconsax.message_add,
+            label: 'Message Requests',
+            subtitle: 'When someone new messages you',
+            value: _messageRequests && _pushEnabled,
+            enabled: _pushEnabled,
+            onChanged: (v) async {
+              setState(() => _messageRequests = v);
+              await _savePreferences();
+            },
+          ),
+
+          const SizedBox(height: 24),
+
+          // ── Stories ───────────────────────────────────────────────────────
+          _SectionHeader(label: 'Stories'),
+          _ToggleTile(
+            icon: Iconsax.message_square,
+            label: 'Story Replies',
+            subtitle: 'When someone replies to your story',
+            value: _storyReplies && _pushEnabled,
+            enabled: _pushEnabled,
+            onChanged: (v) async {
+              setState(() => _storyReplies = v);
+              await _savePreferences();
+            },
+          ),
+          _ToggleTile(
+            icon: Iconsax.heart,
+            label: 'Story Reactions',
+            subtitle: 'When someone reacts to your story',
+            value: _storyReactions && _pushEnabled,
+            enabled: _pushEnabled,
+            onChanged: (v) async {
+              setState(() => _storyReactions = v);
+              await _savePreferences();
+            },
+          ),
+          _ToggleTile(
+            icon: Iconsax.tag,
+            label: 'Story Mentions',
+            subtitle: 'When someone mentions you in their story',
+            value: _storyMentions && _pushEnabled,
+            enabled: _pushEnabled,
+            onChanged: (v) async {
+              setState(() => _storyMentions = v);
+              await _savePreferences();
+            },
+          ),
+
+          const SizedBox(height: 24),
+
+          // ── Calls ────────────────────────────────────────────────────────
+          _SectionHeader(label: 'Calls'),
+          _ToggleTile(
+            icon: Iconsax.call,
+            label: 'Voice Calls',
+            subtitle: 'When you receive a voice call',
+            value: _voiceCalls && _pushEnabled,
+            enabled: _pushEnabled,
+            onChanged: (v) async {
+              setState(() => _voiceCalls = v);
+              await _savePreferences();
+            },
+          ),
+          _ToggleTile(
+            icon: Iconsax.video,
+            label: 'Video Calls',
+            subtitle: 'When you receive a video call',
+            value: _videoCalls && _pushEnabled,
+            enabled: _pushEnabled,
+            onChanged: (v) async {
+              setState(() => _videoCalls = v);
+              await _savePreferences();
+            },
+          ),
+
+          const SizedBox(height: 24),
+
+          // ── Creator & Posts ───────────────────────────────────────────────
+          _SectionHeader(label: 'Creator & Posts'),
+          _ToggleTile(
+            icon: Iconsax.share,
+            label: 'Post Shares',
+            subtitle: 'When someone shares your post',
+            value: _postShares && _pushEnabled,
+            enabled: _pushEnabled,
+            onChanged: (v) async {
+              setState(() => _postShares = v);
+              await _savePreferences();
+            },
+          ),
+          _ToggleTile(
+            icon: Icons.monetization_on_outlined,
+            label: 'Tips Received',
+            subtitle: 'When someone tips you',
+            value: _tips && _pushEnabled,
+            enabled: _pushEnabled,
+            onChanged: (v) async {
+              setState(() => _tips = v);
+              await _savePreferences();
+            },
+          ),
+          _ToggleTile(
+            icon: Iconsax.notification,
+            label: 'New Posts from Following',
+            subtitle: 'When someone you follow posts',
+            value: _newPostFromFollowing && _pushEnabled,
+            enabled: _pushEnabled,
+            onChanged: (v) async {
+              setState(() => _newPostFromFollowing = v);
+              await _savePreferences();
+            },
+          ),
 
           const SizedBox(height: 32),
         ],

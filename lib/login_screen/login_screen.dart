@@ -3,6 +3,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../api_services/auth_service.dart';
 import '../../core/app_colors.dart';
+import '../../core/notification_helper.dart';
 import '../screens/main_screen/main_screen.dart';
 import 'forgot_password.dart';
 
@@ -94,6 +95,9 @@ class _LoginScreenState extends State<LoginScreen> {
 
       final prefs = await SharedPreferences.getInstance();
       await prefs.setBool('isLoggedIn', true);
+
+      // Register FCM token after successful login
+      await NotificationHelper.registerFcmToken();
 
       if (!mounted) return;
 

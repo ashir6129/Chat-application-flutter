@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:zyntraplus/core/cached_image.dart';
 import 'package:iconsax/iconsax.dart';
 import '../../../api_services/chat_service.dart';
 import '../../../api_services/user_service.dart';
@@ -132,10 +133,10 @@ class _AddGroupMemberScreenState extends State<AddGroupMemberScreen> {
                     ),
                     child: widget.creatorAvatar != null && widget.creatorAvatar!.isNotEmpty
                         ? ClipOval(
-                            child: Image.network(
+                            child: appCachedImage(
                               widget.creatorAvatar!,
                               fit: BoxFit.cover,
-                              errorBuilder: (_, __, ___) => Icon(
+                              errorWidget: Icon(
                                 Iconsax.crown,
                                 color: AppColors.buttonColor(context),
                                 size: 22,
