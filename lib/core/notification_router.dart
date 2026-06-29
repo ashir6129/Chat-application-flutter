@@ -108,6 +108,10 @@ void handleNotificationRouting({
       navState.push(
         MaterialPageRoute(
           builder: (_) => PersonalChatScreen(
+            userId: data['sender_id']?.toString() ?? '',
+            name: data['sender_username']?.toString() ?? 'User',
+            avatar: data['sender_avatar']?.toString() ?? '',
+            isOnline: false,
             conversationId: conversationId.toString(),
           ),
         ),
@@ -117,12 +121,17 @@ void handleNotificationRouting({
   // Call-related notifications
   else if (type == 'voice_call' || type == 'video_call' || type == 'missed_call') {
     final callerId = data['caller_id'] ?? data['actor_id'];
+    final callerName = data['caller_username'] ?? 'User';
+    final callerAvatar = data['caller_avatar'] ?? '';
     if (callerId != null) {
       // Navigate to chat with the caller
       navState.push(
         MaterialPageRoute(
           builder: (_) => PersonalChatScreen(
             userId: callerId.toString(),
+            name: callerName.toString(),
+            avatar: callerAvatar.toString(),
+            isOnline: false,
           ),
         ),
       );

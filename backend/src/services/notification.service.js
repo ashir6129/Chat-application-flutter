@@ -3,9 +3,14 @@ import { getMessaging } from 'firebase-admin/messaging';
 import env from '../config/env.js';
 import { query } from '../config/db.js';
 import { createNotification, shouldSendNotification } from '../models/notification.model.js';
+import { readFileSync } from 'fs';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 let firebaseInitialized = false;
-// ... (rest of initialize block)
 // Attempt to initialize Firebase Admin SDK
 try {
   const serviceAccountVar = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
@@ -17,11 +22,33 @@ try {
     firebaseInitialized = true;
     console.log('Firebase Admin SDK initialized successfully via process.env');
   } else if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
-    initializeApp({
-      credential: applicationDefault(),
-    });
-    firebaseInitialized = true;
-    console.log('Firebase Admin SDK initialized successfully via GOOGLE_APPLICATION_CREDENTIALS');
+    // Try to read the file directly
+    try {
+      const serviceAccountPath = process.env.GOOGLE_APPLICATION_CREDENTIALS;
+      let serviceAccount;
+      
+      // Check if it's a relative path
+      if (!serviceAccountPath.startsWith('/')) {
+        const absolutePath = join(__dirname, '..', serviceAccountPath);
+        serviceAccount = JSON.parse(readFileSync(absolutePath, 'utf8'));
+      } else {
+        serviceAccount = JSON.parse(readFileSync(serviceAccountPath, 'utf8'));
+      }
+      
+      initializeApp({
+        credential: cert(serviceAccount),
+      });
+      firebaseInitialized = true;
+      console.log('Firebase Admin SDK initialized successfully via file');
+    } catch (fileErr) {
+      console.warn('Failed to read Firebase service account file:', fileErr.message);
+      // Fallback to application default
+      initializeApp({
+        credential: applicationDefault(),
+      });
+      firebaseInitialized = true;
+      console.log('Firebase Admin SDK initialized successfully via GOOGLE_APPLICATION_CREDENTIALS (fallback)');
+    }
   } else {
     console.warn('Firebase Admin SDK not initialized: Missing credentials. Push notifications will be simulated/logged.');
   }
