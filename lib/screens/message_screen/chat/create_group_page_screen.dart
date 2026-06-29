@@ -3,6 +3,7 @@ import 'package:iconsax/iconsax.dart';
 import '../../../api_services/chat_service.dart';
 import '../../../api_services/user_service.dart';
 import '../../../core/app_colors.dart';
+import '../../../core/chat_memory_cache.dart';
 import '../../../models/follow_user.dart';
 import 'group_chat_screen.dart';
 
@@ -128,6 +129,9 @@ class _CreateGroupPageScreenState extends State<CreateGroupPageScreen> {
       );
       
       print('[CreateGroup] Success! Conversation ID: $conversationId');
+      
+      // Invalidate cache to force refresh
+      ChatMemoryCache.clear();
       
       if (!mounted) return;
       Navigator.pop(context, {
@@ -787,6 +791,11 @@ void showCreateChatSheet(BuildContext context) {
                 if (result != null && context.mounted) {
                   final conversationId = result['conversation_id']?.toString();
                   if (conversationId != null && conversationId.isNotEmpty) {
+                    // Force refresh conversations before navigating
+                    try {
+                      await ChatService.getConversations(limit: 50);
+                    } catch (_) {}
+                    
                     await Navigator.push(
                       context,
                       MaterialPageRoute(
@@ -831,6 +840,11 @@ void showCreateChatSheet(BuildContext context) {
                 if (result != null && context.mounted) {
                   final conversationId = result['conversation_id']?.toString();
                   if (conversationId != null && conversationId.isNotEmpty) {
+                    // Force refresh conversations before navigating
+                    try {
+                      await ChatService.getConversations(limit: 50);
+                    } catch (_) {}
+                    
                     await Navigator.push(
                       context,
                       MaterialPageRoute(
