@@ -16,6 +16,8 @@ class ChatMessageBubble extends StatelessWidget {
   final VoidCallback? onEdit;
   final VoidCallback? onForward;
   final VoidCallback? onPin;
+  final VoidCallback? onUnsend;
+  final VoidCallback? onSilent;
 
   // Voice message fields
   final bool? _isVoice;
@@ -39,6 +41,8 @@ class ChatMessageBubble extends StatelessWidget {
     this.onEdit,
     this.onForward,
     this.onPin,
+    this.onUnsend,
+    this.onSilent,
     bool? isVoice,
     this.voiceAudioUrl,
     Duration? voiceDuration,
@@ -57,6 +61,8 @@ class ChatMessageBubble extends StatelessWidget {
       onEdit: onEdit,
       onForward: onForward,
       onPin: onPin,
+      onUnsend: onUnsend,
+      onSilent: onSilent,
     );
   }
 

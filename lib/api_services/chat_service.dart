@@ -298,6 +298,12 @@ class ChatService {
     return ChatMessage.fromApi(message);
   }
 
+  static Future<void> unsendMessage(String conversationId, String messageId) async {
+    await ApiMethods.authorizedDelete(
+      'conversations/$conversationId/messages/$messageId',
+    );
+  }
+
   static Future<void> markRead(String conversationId) async {
     await ApiMethods.authorizedPost('conversations/$conversationId/read', {});
     await SocketService.markConversationRead(conversationId);

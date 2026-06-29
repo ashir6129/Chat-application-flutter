@@ -21,6 +21,7 @@ import {
   getMessageReceipts,
   getMemberIds,
   updateReceiptStatus,
+  deleteMessage,
 } from '../models/message.model.js';
 import { findUserById } from '../models/user.model.js';
 import env from '../config/env.js';
@@ -276,6 +277,31 @@ export async function sendMessage(userId, conversationId, body, options = {}) {
   }
 
   return payload;
+}
+
+export async function unsendMessage(userId, conversationId, messageId) {
+  await assertMember(conversationId, userId);
+
+  const deleted = await deleteMessage(messageId, userId);
+  if (!deleted) throw new AppError('Message not found or not authorized', 404);
+
+  await touchConversation(conversationId);
+
+  const memberIds = await getMemberIds(conversationId);
+  const io = getIO();
+  
+  io?.to(`conversation:${conversationId}`).emit('message:deleted', {
+    message_id: messageId,
+    conversation_id: conversationId,
+    deleted_by: userId,
+    deleted_at: new Date().toISOString(),
+  });
+
+  for (const memberId of memberIds) {
+    await invalidateUserConversations(memberId);
+  }
+
+  return { success: true, message_id: messageId };
 }
 
 export async function markRead(userId, conversationId) {

@@ -751,6 +751,8 @@ class _PersonalChatScreenState extends State<PersonalChatScreen> {
                                 ),
                               );
                             },
+                            onUnsend: () => _unsendMessage(msg.id),
+                            onSilent: () => _sendSilentMessage(msg.text),
                           );
                         },
                       ),
@@ -853,6 +855,48 @@ class _PersonalChatScreenState extends State<PersonalChatScreen> {
         ],
       ),
     );
+  }
+
+  Future<void> _unsendMessage(String messageId) async {
+    if (_conversationId == null || _conversationId!.isEmpty) return;
+    
+    try {
+      await ChatService.unsendMessage(_conversationId!, messageId);
+      if (!mounted) return;
+      setState(() {
+        _messages.removeWhere((m) => m.id == messageId);
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Message unsent')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to unsend: ${ChatService.errorMessage(e)}')),
+      );
+    }
+  }
+
+  Future<void> _sendSilentMessage(String text) async {
+    if (_conversationId == null || _conversationId!.isEmpty) return;
+    
+    try {
+      await ChatService.sendMessage(
+        _conversationId!,
+        text,
+        messageType: 'text',
+        metadata: {'silent': true},
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Silent message sent')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to send: ${ChatService.errorMessage(e)}')),
+      );
+    }
   }
 }
 

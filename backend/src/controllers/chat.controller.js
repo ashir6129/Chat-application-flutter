@@ -49,6 +49,12 @@ export const listMessages = asyncHandler(async (req, res) => {
   res.json({ success: true, data });
 });
 
+export const unsendMessage = asyncHandler(async (req, res) => {
+  const { messageId } = req.params;
+  const result = await chatService.unsendMessage(req.user.sub, req.params.id, messageId);
+  res.json({ success: true, data: result });
+});
+
 export const sendMessage = asyncHandler(async (req, res) => {
   const error = chatValidator.validateSendMessage(req.body);
   if (error) throw new AppError(error, 400);

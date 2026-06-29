@@ -12,6 +12,8 @@ Future<void> showMessageActionSheet(
   VoidCallback? onEdit,
   VoidCallback? onForward,
   VoidCallback? onPin,
+  VoidCallback? onUnsend,
+  VoidCallback? onSilent,
 }) {
   const reactions = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
 
@@ -96,6 +98,25 @@ Future<void> showMessageActionSheet(
               onTap: () {
                 Navigator.pop(ctx);
                 onPin?.call();
+              },
+            ),
+            if (isMine)
+              _actionTile(
+                ctx,
+                icon: Iconsax.trash,
+                label: 'Unsend',
+                onTap: () {
+                  Navigator.pop(ctx);
+                  onUnsend?.call();
+                },
+              ),
+            _actionTile(
+              ctx,
+              icon: Iconsax.notification,
+              label: '@silent',
+              onTap: () {
+                Navigator.pop(ctx);
+                onSilent?.call();
               },
             ),
             const SizedBox(height: 8),

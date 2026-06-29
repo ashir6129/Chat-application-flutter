@@ -127,10 +127,21 @@ export async function getMessageReceipts(messageId) {
   return result.rows;
 }
 
+export async function deleteMessage(messageId, userId) {
+  const result = await query(
+    `UPDATE messages
+     SET deleted_at = NOW(), deleted_by = $2
+     WHERE id = $1 AND sender_id = $2
+     RETURNING id, conversation_id, sender_id`,
+    [messageId, userId],
+  );
+  return result.rows[0] ?? null;
+}
+
 export async function getMemberIds(conversationId) {
   const result = await query(
     `SELECT user_id FROM conversation_members WHERE conversation_id = $1`,
     [conversationId],
   );
-  return result.rows.map((r) => r.user_id);
+  return result.rows.map(row => row.user_id);
 }
