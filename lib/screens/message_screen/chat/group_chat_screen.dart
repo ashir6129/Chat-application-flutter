@@ -13,7 +13,9 @@ import '../../../widgets/message/chat_input_bar.dart';
 import '../../../widgets/message/chat_theme.dart';
 import '../../../widgets/message/message_action_sheet.dart';
 import '../../../core/app_colors.dart';
+import '../../../core/offline_cache_service.dart';
 import 'chat_attach_sheet.dart';
+import 'add_group_member_screen.dart';
 
 /// Group chat wired to REST + Socket.IO (same flow as direct chat).
 class GroupChatScreen extends StatefulWidget {
@@ -50,6 +52,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
   StreamSubscription<Map<String, dynamic>>? _socketSub;
   StreamSubscription<Map<String, dynamic>>? _typingStartSub;
   StreamSubscription<Map<String, dynamic>>? _typingStopSub;
+  String? _pinnedMessageId;
   final Map<String, String> _typingUsers = {};
 
   final List<_UiGroupMessage> _messages = [];
@@ -81,6 +84,8 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
       _membersById = {
         for (final m in _conversation!.members) m.userId: m,
       };
+
+      _pinnedMessageId = OfflineCacheService.getJson('pinned_${widget.groupId}')?.toString();
 
       SocketService.connect().then((_) {
         SocketService.joinConversation(widget.groupId);
@@ -359,12 +364,13 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
           ),
           IconButton(
             icon: const Icon(Icons.more_vert, color: Colors.white70),
-            onPressed: () {},
+            onPressed: () => _showGroupOptions(),
           ),
         ],
       ),
       body: Column(
         children: [
+          if (_pinnedMessageId != null) _buildPinnedBar(AppColors.buttonColor(context)),
           Expanded(
             child: _loading
                 ? const Center(child: CircularProgressIndicator())
@@ -450,7 +456,13 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                     messageText: msg.text,
                     isMine: msg.isMine,
                     onReply: () {},
-                    onPin: () {},
+                    onPin: () {
+                      setState(() => _pinnedMessageId = msg.id);
+                      OfflineCacheService.setJson('pinned_${widget.groupId}', msg.id);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Message pinned'), duration: Duration(seconds: 1)),
+                      );
+                    },
                   ),
                   child: Container(
                     padding: const EdgeInsets.all(12),
@@ -521,7 +533,13 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
             messageText: msg.text,
             isMine: false,
             onReply: () {},
-            onPin: () {},
+            onPin: () {
+              setState(() => _pinnedMessageId = msg.id);
+              OfflineCacheService.setJson('pinned_${widget.groupId}', msg.id);
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Message pinned'), duration: Duration(seconds: 1)),
+              );
+            },
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -535,6 +553,116 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                 msg.time,
                 style: const TextStyle(color: ChatTheme.mutedText, fontSize: 10),
               ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPinnedBar(Color accent) {
+    final msg = _messages.cast<_UiGroupMessage?>().firstWhere(
+          (m) => m?.id == _pinnedMessageId,
+          orElse: () => null,
+        );
+    final text = msg?.text ?? 'Pinned Message';
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      color: ChatTheme.barBackground,
+      child: Row(
+        children: [
+          Container(width: 3, height: 36, color: accent),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Pinned Message', style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600)),
+                Text(
+                  text,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(color: ChatTheme.mutedText, fontSize: 12),
+                ),
+              ],
+            ),
+          ),
+          GestureDetector(
+            onTap: () {
+              OfflineCacheService.remove('pinned_${widget.groupId}');
+              setState(() => _pinnedMessageId = null);
+            },
+            child: const Icon(Icons.close, color: ChatTheme.mutedText, size: 18),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showGroupOptions() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        decoration: BoxDecoration(
+          color: ChatTheme.barBackground,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        child: SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 40,
+                height: 4,
+                margin: const EdgeInsets.only(top: 12, bottom: 8),
+                decoration: BoxDecoration(
+                  color: ChatTheme.mutedText,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+              ListTile(
+                leading: const Icon(Iconsax.user_add, color: Colors.white70),
+                title: const Text(
+                  'Add Members',
+                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.w500),
+                ),
+                onTap: () async {
+                  Navigator.pop(ctx);
+                  final creator = _conversation?.members.firstWhere(
+                    (m) => m.role == 'admin',
+                    orElse: () => _conversation!.members.first,
+                  );
+                  final result = await Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => AddGroupMemberScreen(
+                        groupId: widget.groupId,
+                        groupName: widget.name,
+                        creatorId: creator.userId,
+                        creatorName: creator.displayName,
+                        creatorAvatar: creator.avatarUrl,
+                        currentMemberIds: _conversation?.members.map((m) => m.userId).toList() ?? [],
+                      ),
+                    ),
+                  );
+                  if (result == true && mounted) {
+                    await _bootstrap();
+                  }
+                },
+              ),
+              ListTile(
+                leading: const Icon(Iconsax.info_circle, color: Colors.white70),
+                title: const Text(
+                  'Group Info',
+                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.w500),
+                ),
+                onTap: () {
+                  Navigator.pop(ctx);
+                },
+              ),
+              const SizedBox(height: 8),
             ],
           ),
         ),

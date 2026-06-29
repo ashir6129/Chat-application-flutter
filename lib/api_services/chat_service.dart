@@ -88,6 +88,7 @@ class ChatConversation {
   final DateTime? lastMessageAt;
   final ChatLastMessage? lastMessage;
   final List<ChatMember> members;
+  final Map<String, dynamic> metadata;
 
   const ChatConversation({
     required this.id,
@@ -97,6 +98,7 @@ class ChatConversation {
     this.lastMessageAt,
     this.lastMessage,
     this.members = const [],
+    this.metadata = const {},
   });
 
   factory ChatConversation.fromApi(Map<String, dynamic> json) {
@@ -104,6 +106,7 @@ class ChatConversation {
         .map((m) => ChatMember.fromApi(Map<String, dynamic>.from(m as Map)))
         .toList();
     final lastMsg = json['last_message'] as Map<String, dynamic>?;
+    final meta = json['metadata'];
     return ChatConversation(
       id: json['id']?.toString() ?? '',
       type: json['type']?.toString() ?? 'direct',
@@ -112,11 +115,14 @@ class ChatConversation {
       lastMessageAt: DateTime.tryParse(json['last_message_at']?.toString() ?? ''),
       lastMessage: lastMsg != null ? ChatLastMessage.fromApi(lastMsg) : null,
       members: members,
+      metadata: meta is Map ? Map<String, dynamic>.from(meta) : {},
     );
   }
 
   bool get isGroup => type == 'group';
   bool get isDirect => type == 'direct';
+  bool get isChannel => metadata['kind']?.toString() == 'channel';
+  String get channelPrivacy => metadata['privacy']?.toString() ?? 'public';
 
   ChatMember? peerFor(String myUserId) {
     for (final m in members) {
@@ -300,15 +306,29 @@ class ChatService {
   static Future<String> createGroup({
     required String title,
     required List<String> memberIds,
+    String kind = 'group',
+    String privacy = 'public',
   }) async {
     final data = await ApiMethods.authorizedPost('conversations/group', {
       'title': title,
       'member_ids': memberIds,
+      'kind': kind,
+      'privacy': privacy,
     });
     final conversation = data['data']?['conversation'] as Map<String, dynamic>?;
     final id = conversation?['id']?.toString();
     if (id == null || id.isEmpty) throw ApiException('Could not create group');
     return id;
+  }
+
+  static Future<void> leaveConversation(String conversationId) async {
+    await ApiMethods.authorizedDelete('conversations/$conversationId');
+  }
+
+  static Future<void> addMember(String conversationId, String userId) async {
+    await ApiMethods.authorizedPost('conversations/$conversationId/members', {
+      'user_id': userId,
+    });
   }
 
   static String formatMessageTime(DateTime dt) {
