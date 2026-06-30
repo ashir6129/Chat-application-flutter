@@ -549,7 +549,6 @@ class _PersonalChatScreenState extends State<PersonalChatScreen> {
         await OfflineMessageQueue.enqueue(
           conversationId: _conversationId!,
           body: text,
-          metadata: replyMetadata,
         );
         if (!mounted) return;
         setState(() {
@@ -566,8 +565,9 @@ class _PersonalChatScreenState extends State<PersonalChatScreen> {
       _sending = true;
     });
     
-    // Re-send the message
-    await _sendMessage(msg.text);
+    // Set the text in input controller and send
+    _inputController.text = msg.text;
+    await _sendMessage();
   }
 
   Future<void> _handleImageSelected(String imagePath) async {

@@ -35,7 +35,7 @@ class _ChatAttachSheet extends StatelessWidget {
     
     if (image != null && onImageSelected != null) {
       Navigator.pop(context);
-      onImageSelected(image.path);
+      onImageSelected!(image.path);
     }
   }
 
