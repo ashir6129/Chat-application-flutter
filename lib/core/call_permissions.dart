@@ -15,6 +15,25 @@ class CallPermissionException implements Exception {
 abstract final class CallPermissions {
   static bool _hasRequestedPermissions = false;
 
+  /// Request all call-related permissions at app launch/onboarding
+  static Future<void> requestAllPermissionsAtLaunch() async {
+    final permissions = [
+      Permission.microphone,
+      Permission.camera,
+      Permission.notification,
+    ];
+
+    final statuses = await permissions.request();
+    
+    // Check if any are permanently denied and log for debugging
+    for (final permission in permissions) {
+      final status = statuses[permission];
+      if (status?.isPermanentlyDenied == true) {
+        debugPrint('CallPermissions: ${permission.toString()} is permanently denied at launch');
+      }
+    }
+  }
+
   /// Request microphone and camera permissions upfront before a call attempt
   static Future<void> ensureForCall(CallType callType) async {
     // Request all relevant permissions on first call attempt

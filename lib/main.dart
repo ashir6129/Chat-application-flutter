@@ -7,6 +7,7 @@ import 'package:zyntraplus/core/image_cache_service.dart';
 import 'package:zyntraplus/core/offline_cache_service.dart';
 import 'package:zyntraplus/core/offline_message_queue.dart';
 import 'package:zyntraplus/core/notification_helper.dart';
+import 'package:zyntraplus/core/call_permissions.dart';
 import 'package:zyntraplus/login_screen/auth_screen.dart';
 import 'package:zyntraplus/login_screen/splash_screen.dart';
 import 'package:zyntraplus/screens/call/incoming_call_overlay.dart';
@@ -23,6 +24,9 @@ void main() async {
   await ConnectivityService.init();
   await OfflineMessageQueue.init();
   await NotificationHelper.init();
+
+  // Request call-related permissions at app launch
+  await CallPermissions.requestAllPermissionsAtLaunch();
 
   final SharedPreferences prefs = await SharedPreferences.getInstance();
   final String? savedTheme = prefs.getString('theme');

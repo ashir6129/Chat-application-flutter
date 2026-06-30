@@ -126,6 +126,16 @@ class CallService {
       throw StateError('Call not prepared');
     }
     final peerId = currentPeerId!;
+    
+    // Pre-call permission check on caller side
+    try {
+      await CallPermissions.ensureForCall(_callType);
+    } catch (e) {
+      debugPrint('CallService: Permission check failed - $e');
+      await _cleanup();
+      rethrow;
+    }
+    
     try {
       await _acquireLocalMedia();
       await _ensureSocket();
@@ -202,7 +212,11 @@ class CallService {
     });
 
     SocketService.onCallEnd.listen((_) => endCall(emit: false));
-    SocketService.onCallReject.listen((_) => endCall(emit: false));
+    SocketService.onCallReject.listen((data) {
+      final reason = data['reason']?.toString() ?? 'Call rejected';
+      debugPrint('CallService: Call rejected - $reason');
+      endCall(emit: false);
+    });
   }
 
   void _setupCallErrorListener() {
@@ -446,6 +460,15 @@ class CallService {
       return;
     }
 
+    // Pre-call permission check on receiver side
+    try {
+      await CallPermissions.ensureForCall(_callType);
+    } catch (e) {
+      debugPrint('CallService: Permission check failed - $e');
+      rejectCall(reason: 'Permission denied');
+      rethrow;
+    }
+
     try {
       await _acquireLocalMedia();
       await _ensureSocket();
@@ -474,9 +497,9 @@ class CallService {
     }
   }
 
-  void rejectCall() {
+  void rejectCall({String reason = 'Call rejected'}) {
     if (currentPeerId != null && _state == CallState.incoming) {
-      SocketService.emitCallReject(currentPeerId!);
+      SocketService.emitCallReject(currentPeerId!, reason: reason);
     }
     _cleanup();
   }

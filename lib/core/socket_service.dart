@@ -244,8 +244,8 @@ class SocketService {
     _socket?.emit('call:end', {'to_id': toId});
   }
 
-  static void emitCallReject(String callerId) {
-    _socket?.emit('call:reject', {'caller_id': callerId});
+  static void emitCallReject(String callerId, {String reason = 'Call rejected'}) {
+    _socket?.emit('call:reject', {'caller_id': callerId, 'reason': reason});
   }
 
   static void disconnect() {
