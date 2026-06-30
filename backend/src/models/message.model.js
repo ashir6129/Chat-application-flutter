@@ -127,6 +127,32 @@ export async function getMessageReceipts(messageId) {
   return result.rows;
 }
 
+export async function getMessageReceiptsBatch(messageIds) {
+  if (messageIds.length === 0) return new Map();
+  
+  const result = await query(
+    `SELECT mr.message_id, mr.user_id, mr.status, mr.updated_at, u.username
+     FROM message_receipts mr
+     JOIN users u ON u.id = mr.user_id
+     WHERE mr.message_id = ANY($1)`,
+    [messageIds],
+  );
+  
+  const receiptsMap = new Map();
+  for (const row of result.rows) {
+    if (!receiptsMap.has(row.message_id)) {
+      receiptsMap.set(row.message_id, []);
+    }
+    receiptsMap.get(row.message_id).push({
+      user_id: row.user_id,
+      username: row.username,
+      status: row.status,
+      updated_at: row.updated_at,
+    });
+  }
+  return receiptsMap;
+}
+
 export async function deleteMessage(messageId, userId) {
   const result = await query(
     `UPDATE messages
@@ -178,6 +204,32 @@ export async function getMessageReactions(messageId) {
     [messageId],
   );
   return result.rows;
+}
+
+export async function getMessageReactionsBatch(messageIds) {
+  if (messageIds.length === 0) return new Map();
+  
+  const result = await query(
+    `SELECT mr.message_id, mr.emoji, mr.user_id, u.username
+     FROM message_reactions mr
+     JOIN users u ON u.id = mr.user_id
+     WHERE mr.message_id = ANY($1)
+     ORDER BY mr.created_at DESC`,
+    [messageIds],
+  );
+  
+  const reactionsMap = new Map();
+  for (const row of result.rows) {
+    if (!reactionsMap.has(row.message_id)) {
+      reactionsMap.set(row.message_id, []);
+    }
+    reactionsMap.get(row.message_id).push({
+      emoji: row.emoji,
+      user_id: row.user_id,
+      username: row.username,
+    });
+  }
+  return reactionsMap;
 }
 
 export async function pinMessage(conversationId, messageId, userId) {

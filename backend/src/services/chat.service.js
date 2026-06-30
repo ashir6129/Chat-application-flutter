@@ -69,7 +69,7 @@ function serializeConversation(row, members = []) {
   };
 }
 
-function serializeMessage(row, receipts = []) {
+function serializeMessage(row, receipts = [], reactions = []) {
   return {
     id: row.id,
     conversation_id: row.conversation_id,
@@ -86,6 +86,7 @@ function serializeMessage(row, receipts = []) {
       status: r.status,
       updated_at: r.updated_at,
     })),
+    reactions: reactions,
   };
 }
 
@@ -197,12 +198,20 @@ export async function getConversationMessages(userId, conversationId, { limit = 
   await assertMember(conversationId, userId);
 
   const rows = await listMessages(conversationId, { limit, before });
-  const messages = await Promise.all(
-    rows.map(async (row) => {
-      const receipts = await getMessageReceipts(row.id);
-      return serializeMessage(row, receipts);
-    }),
-  );
+  
+  // Batch fetch receipts for all messages to avoid N+1 queries
+  const messageIds = rows.map(row => row.id);
+  const { getMessageReceiptsBatch, getMessageReactionsBatch } = await import('../models/message.model.js');
+  const [receiptsMap, reactionsMap] = await Promise.all([
+    getMessageReceiptsBatch(messageIds),
+    getMessageReactionsBatch(messageIds),
+  ]);
+  
+  const messages = rows.map(row => {
+    const receipts = receiptsMap.get(row.id) || [];
+    const reactions = reactionsMap.get(row.id) || [];
+    return serializeMessage(row, receipts, reactions);
+  });
 
   return { messages, limit, before };
 }
@@ -248,7 +257,8 @@ export async function sendMessage(userId, conversationId, body, options = {}) {
   }
 
   const receipts = await getMessageReceipts(message.id);
-  const payload = serializeMessage(message, receipts);
+  const reactions = await getMessageReactions(message.id);
+  const payload = serializeMessage(message, receipts, reactions);
 
   const io = getIO();
   io?.to(`conversation:${conversationId}`).emit('message:new', payload);
