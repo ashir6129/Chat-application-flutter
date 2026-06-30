@@ -1,4 +1,5 @@
 import { AppError } from '../utils/AppError.js';
+import { query } from '../config/db.js';
 import {
   findDirectConversation,
   createConversation,
@@ -10,6 +11,8 @@ import {
   removeConversationMember,
   updateLastRead,
   touchConversation,
+  listPendingRequests,
+  updateConversationStatus,
 } from '../models/conversation.model.js';
 import {
   createMessage,
@@ -96,7 +99,7 @@ export async function getConversations(userId, { page = 1, limit = 30 }) {
     env.redis.conversationsTtlSeconds,
     async () => {
       const offset = (page - 1) * limit;
-      const rows = await listUserConversations(userId, { limit, offset });
+      const rows = await listUserConversations(userId, { limit, offset, includePending: false });
 
       const conversations = await Promise.all(
         rows.map(async (row) => {
@@ -108,6 +111,49 @@ export async function getConversations(userId, { page = 1, limit = 30 }) {
       return { conversations, page, limit };
     },
   );
+}
+
+export async function getMessageRequests(userId, { limit = 30, offset = 0 }) {
+  const rows = await listPendingRequests(userId, { limit, offset });
+
+  const conversations = await Promise.all(
+    rows.map(async (row) => {
+      const members = await listConversationMembers(row.id);
+      return serializeConversation(row, members);
+    }),
+  );
+
+  return { conversations, limit, offset };
+}
+
+export async function acceptMessageRequest(userId, conversationId) {
+  await assertMember(conversationId, userId);
+  
+  // Update status to accepted for the recipient
+  await updateConversationStatus(conversationId, userId, 'accepted');
+  
+  // Also update status for the sender (both sides should be accepted)
+  const members = await listConversationMembers(conversationId);
+  const sender = members.find(m => m.user_id !== userId);
+  if (sender) {
+    await updateConversationStatus(conversationId, sender.user_id, 'accepted');
+  }
+  
+  await invalidateUserConversations(userId);
+  if (sender) {
+    await invalidateUserConversations(sender.user_id);
+  }
+  
+  return getConversation(userId, conversationId);
+}
+
+export async function declineMessageRequest(userId, conversationId) {
+  await assertMember(conversationId, userId);
+  
+  // Remove the conversation member (this effectively declines the request)
+  await removeConversationMember(conversationId, userId);
+  
+  await invalidateUserConversations(userId);
 }
 
 export async function getConversation(userId, conversationId) {
@@ -128,33 +174,52 @@ export async function startDirectConversation(userId, targetUserId) {
   const target = await findUserById(targetUserId);
   if (!target) throw new AppError('User not found', 404);
 
-  // Enforce ZyntraPlus rules: require accepted Box request OR mutual follow
+  // Check if users mutually follow
+  const { isFollowing } = await import('../models/follow.model.js');
+  const followingTarget = await isFollowing(userId, targetUserId);
+  const targetFollowingUs = await isFollowing(targetUserId, userId);
+  const isMutualFollow = followingTarget && targetFollowingUs;
+
+  // Check for accepted Box request
   const { findBoxRequestBetween } = await import('../models/box.model.js');
   const box = await findBoxRequestBetween(userId, targetUserId);
   const isBoxAccepted = box && box.status === 'accepted';
 
-  if (!isBoxAccepted) {
-    const { isFollowing } = await import('../models/follow.model.js');
-    const followingTarget = await isFollowing(userId, targetUserId);
-    const targetFollowingUs = await isFollowing(targetUserId, userId);
-    const isMutualFollow = followingTarget && targetFollowingUs;
-
-    if (!isMutualFollow) {
-      throw new AppError('Unlock connection via Box request or mutual follow to start chat', 403);
-    }
-  }
+  const isAllowed = isMutualFollow || isBoxAccepted;
 
   const existing = await findDirectConversation(userId, targetUserId);
   if (existing) {
+    // If conversation exists but not allowed, check if it's pending
+    const memberStatus = await query(
+      `SELECT status FROM conversation_members 
+       WHERE conversation_id = $1 AND user_id = $2`,
+      [existing.id, userId]
+    );
+    const status = memberStatus.rows[0]?.status;
+    
+    if (status === 'pending' && !isAllowed) {
+      throw new AppError('Your message request is pending approval', 403);
+    }
+    
     return getConversation(userId, existing.id);
   }
 
+  // Create conversation with pending status if not mutually following
   const conversation = await createConversation({
     type: 'direct',
     createdBy: userId,
     memberIds: [userId, targetUserId],
     roles: { [userId]: 'member', [targetUserId]: 'member' },
   });
+
+  // Set conversation member status based on follow relationship
+  const memberStatus = isAllowed ? 'accepted' : 'pending';
+  await query(
+    `UPDATE conversation_members 
+     SET status = $1 
+     WHERE conversation_id = $2 AND user_id = $3`,
+    [memberStatus, conversation.id, targetUserId]
+  );
 
   await invalidateUserConversations(userId);
   await invalidateUserConversations(targetUserId);

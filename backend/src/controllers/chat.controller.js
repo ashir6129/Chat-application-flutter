@@ -10,6 +10,23 @@ export const listConversations = asyncHandler(async (req, res) => {
   res.json({ success: true, data });
 });
 
+export const listMessageRequests = asyncHandler(async (req, res) => {
+  const limit = Number(req.query.limit ?? 30);
+  const offset = Number(req.query.offset ?? 0);
+  const data = await chatService.getMessageRequests(req.user.sub, { limit, offset });
+  res.json({ success: true, data });
+});
+
+export const acceptMessageRequest = asyncHandler(async (req, res) => {
+  const conversation = await chatService.acceptMessageRequest(req.user.sub, req.params.id);
+  res.json({ success: true, data: { conversation } });
+});
+
+export const declineMessageRequest = asyncHandler(async (req, res) => {
+  await chatService.declineMessageRequest(req.user.sub, req.params.id);
+  res.json({ success: true, message: 'Message request declined' });
+});
+
 export const getConversation = asyncHandler(async (req, res) => {
   const conversation = await chatService.getConversation(req.user.sub, req.params.id);
   res.json({ success: true, data: { conversation } });

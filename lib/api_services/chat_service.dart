@@ -278,6 +278,20 @@ class ChatService {
     return cached.map((m) => ChatMessage.fromApi(m)).toList();
   }
 
+  static Future<Map<String, dynamic>> getMessageRequests() async {
+    final data = await ApiMethods.authorizedGet('conversations/requests?limit=30');
+    return data['data'] as Map<String, dynamic>? ?? {};
+  }
+
+  static Future<Map<String, dynamic>> acceptMessageRequest(String conversationId) async {
+    final data = await ApiMethods.authorizedPost('conversations/$conversationId/accept', {});
+    return data['data'] as Map<String, dynamic>? ?? {};
+  }
+
+  static Future<void> declineMessageRequest(String conversationId) async {
+    await ApiMethods.authorizedPost('conversations/$conversationId/decline', {});
+  }
+
   static Future<ChatMessage> sendMessage(
     String conversationId,
     String body, {
