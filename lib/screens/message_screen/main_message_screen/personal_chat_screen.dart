@@ -209,7 +209,8 @@ class _PersonalChatScreenState extends State<PersonalChatScreen> {
       }
       // Skip if already in list (by real id)
       if (_messages.any((m) => m.id == msg.id)) return;
-      _messages.add(_mapApiMessage(msg));
+      // Insert at beginning for reversed ListView (newest at bottom)
+      _messages.insert(0, _mapApiMessage(msg));
     });
     _scrollToEnd();
     if (msg.senderId != _currentUserId) {
@@ -385,7 +386,7 @@ class _PersonalChatScreenState extends State<PersonalChatScreen> {
     final tempId = 'voice_temp_${DateTime.now().millisecondsSinceEpoch}';
     final voiceUrl = VoiceRecorderService.createAudioUrl(Uint8List.fromList(bytes));
     setState(() {
-      _messages.add(_UiMessage(
+      _messages.insert(0, _UiMessage(
         id: tempId,
         text: '[Voice message]',
         isMine: true,
@@ -413,7 +414,7 @@ class _PersonalChatScreenState extends State<PersonalChatScreen> {
       setState(() {
         _messages.removeWhere((m) => m.pending && m.text == msg.body);
         if (!_messages.any((m) => m.id == msg.id)) {
-          _messages.add(_mapApiMessage(msg));
+          _messages.insert(0, _mapApiMessage(msg));
         }
       });
       _scrollToEnd();
@@ -454,7 +455,7 @@ class _PersonalChatScreenState extends State<PersonalChatScreen> {
     );
 
     setState(() {
-      _messages.add(tempMsg);
+      _messages.insert(0, tempMsg);
       _replyingTo = null;
     });
     _scrollToEnd();
@@ -471,7 +472,7 @@ class _PersonalChatScreenState extends State<PersonalChatScreen> {
         _messages.removeWhere((m) => m.id == tempMsg.id);
         // Only add if not already in list (socket may have already delivered it)
         if (!_messages.any((m) => m.id == sent.id)) {
-          _messages.add(_mapApiMessage(sent));
+          _messages.insert(0, _mapApiMessage(sent));
         }
         _sending = false;
       });
