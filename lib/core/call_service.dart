@@ -16,6 +16,7 @@ class CallService {
 
   CallService._internal() {
     _setupSocketListeners();
+    _setupCallErrorListener();
   }
 
   RTCPeerConnection? _peerConnection;
@@ -202,6 +203,14 @@ class CallService {
 
     SocketService.onCallEnd.listen((_) => endCall(emit: false));
     SocketService.onCallReject.listen((_) => endCall(emit: false));
+  }
+
+  void _setupCallErrorListener() {
+    SocketService.onCallError.listen((data) {
+      final error = data['error']?.toString() ?? 'Call failed';
+      debugPrint('CallService: Call error received - $error');
+      endCall(emit: false);
+    });
   }
 
   Future<void> _ensureSocket() async {

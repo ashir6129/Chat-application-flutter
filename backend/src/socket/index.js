@@ -139,6 +139,16 @@ export async function initSocket(httpServer) {
     socket.on('call:offer', async (payload) => {
       const peerId = payload?.peer_id;
       if (!peerId) return;
+      
+      // Check if peer is online before attempting call
+      if (!isUserOnline(peerId)) {
+        socket.emit('call:error', {
+          error: 'User is offline',
+          peer_id: peerId,
+        });
+        return;
+      }
+      
       let callerAvatar = null;
       let callerUsername = socket.username;
       try {

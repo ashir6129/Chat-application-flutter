@@ -27,6 +27,8 @@ class SocketService {
       StreamController<Map<String, dynamic>>.broadcast();
   static final StreamController<Map<String, dynamic>> _callRejectController =
       StreamController<Map<String, dynamic>>.broadcast();
+  static final StreamController<Map<String, dynamic>> _callErrorController =
+      StreamController<Map<String, dynamic>>.broadcast();
   static final StreamController<Map<String, dynamic>> _messageReadController =
       StreamController<Map<String, dynamic>>.broadcast();
   static final StreamController<Map<String, dynamic>> _messageReceiptsController =
@@ -53,6 +55,7 @@ class SocketService {
   static Stream<Map<String, dynamic>> get onCallIceCandidate => _callIceCandidateController.stream;
   static Stream<Map<String, dynamic>> get onCallEnd => _callEndController.stream;
   static Stream<Map<String, dynamic>> get onCallReject => _callRejectController.stream;
+  static Stream<Map<String, dynamic>> get onCallError => _callErrorController.stream;
   static Stream<Map<String, dynamic>> get onMessageRead => _messageReadController.stream;
   static Stream<Map<String, dynamic>> get onMessageReceipts => _messageReceiptsController.stream;
   static Stream<Map<String, dynamic>> get onPresenceChanged => _presenceController.stream;
@@ -154,6 +157,9 @@ class SocketService {
       })
       ..on('call:reject', (data) {
         if (data is Map) _callRejectController.add(Map<String, dynamic>.from(data));
+      })
+      ..on('call:error', (data) {
+        if (data is Map) _callErrorController.add(Map<String, dynamic>.from(data));
       })
       ..connect();
 
