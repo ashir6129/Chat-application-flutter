@@ -232,8 +232,9 @@ export async function initSocket(httpServer) {
     socket.on('disconnect', async () => {
       setUserOffline(userId, socket.id);
       try {
-        await updateLastSeen(userId);
+        // Only update last_seen when user is truly offline (no more active sockets)
         if (!isUserOnline(userId)) {
+          await updateLastSeen(userId);
           const partnerIds = await listConversationPartnerIds(userId);
           const offlinePayload = {
             user_id: userId,

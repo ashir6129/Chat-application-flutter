@@ -411,24 +411,31 @@ class ChatService {
   static String formatLastSeen(DateTime? lastSeen, {bool isOnline = false}) {
     if (isOnline) return 'Online';
     if (lastSeen == null) return 'Last seen recently';
+    
+    // Convert to local time for display
+    final localLastSeen = lastSeen.toLocal();
     final now = DateTime.now();
-    final diff = now.difference(lastSeen);
+    final diff = now.difference(localLastSeen);
+    
     if (diff.inMinutes < 2) return 'Last seen just now';
-    final h = lastSeen.hour > 12 ? lastSeen.hour - 12 : (lastSeen.hour == 0 ? 12 : lastSeen.hour);
-    final m = lastSeen.minute.toString().padLeft(2, '0');
-    final ampm = lastSeen.hour >= 12 ? 'PM' : 'AM';
+    
+    final h = localLastSeen.hour > 12 ? localLastSeen.hour - 12 : (localLastSeen.hour == 0 ? 12 : localLastSeen.hour);
+    final m = localLastSeen.minute.toString().padLeft(2, '0');
+    final ampm = localLastSeen.hour >= 12 ? 'PM' : 'AM';
     final timeStr = '$h:$m $ampm';
+    
     final today = DateTime(now.year, now.month, now.day);
-    final seenDay = DateTime(lastSeen.year, lastSeen.month, lastSeen.day);
+    final seenDay = DateTime(localLastSeen.year, localLastSeen.month, localLastSeen.day);
+    
     if (seenDay == today) return 'Last seen today at $timeStr';
     if (seenDay == today.subtract(const Duration(days: 1))) {
       return 'Last seen yesterday at $timeStr';
     }
     if (diff.inDays < 7) {
       const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
-      return 'Last seen ${days[lastSeen.weekday - 1]} at $timeStr';
+      return 'Last seen ${days[localLastSeen.weekday - 1]} at $timeStr';
     }
-    return 'Last seen ${lastSeen.day}/${lastSeen.month}/${lastSeen.year}';
+    return 'Last seen ${localLastSeen.day}/${localLastSeen.month}/${localLastSeen.year}';
   }
 
   static String errorMessage(Object error) {
