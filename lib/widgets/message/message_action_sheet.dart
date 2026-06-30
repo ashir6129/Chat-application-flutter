@@ -14,8 +14,10 @@ Future<void> showMessageActionSheet(
   VoidCallback? onPin,
   VoidCallback? onUnsend,
   VoidCallback? onSilent,
+  void Function(String effect)? onEffect,
 }) {
   const reactions = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
+  const effects = ['confetti', 'fireworks', 'hearts', 'sparkles'];
 
   return showModalBottomSheet(
     context: context,
@@ -119,6 +121,41 @@ Future<void> showMessageActionSheet(
                 onSilent?.call();
               },
             ),
+            if (onEffect != null) ...[
+              const Divider(height: 1, color: ChatTheme.divider),
+              const Padding(
+                padding: EdgeInsets.all(12),
+                child: Text(
+                  'Send with effect',
+                  style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: Wrap(
+                  spacing: 8,
+                  children: effects.map((effect) {
+                    return GestureDetector(
+                      onTap: () {
+                        Navigator.pop(ctx);
+                        onEffect.call(effect);
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: Colors.grey[800],
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          effect,
+                          style: const TextStyle(color: Colors.white, fontSize: 14),
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ),
+            ],
             const SizedBox(height: 8),
           ],
         ),

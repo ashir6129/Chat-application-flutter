@@ -1,21 +1,85 @@
 import 'package:flutter/material.dart';
 import 'package:iconsax/iconsax.dart';
 import '../../../../core/app_colors.dart';
+import '../../../../core/api_methods.dart';
 
-class UserAllProductsTab extends StatelessWidget {
-  const UserAllProductsTab({super.key});
+class UserAllProductsTab extends StatefulWidget {
+  final String? userId;
+  final bool isOwnProfile;
 
-  static const List<_ProductData> _products = [
-    _ProductData(uid: 'pr1', name: 'Handcrafted Bamboo Lamp',       price: 1299.00, imageUrl: 'https://picsum.photos/seed/p1/400/400'),
-    _ProductData(uid: 'pr2', name: 'Limited Edition Zyntra Hoodie', price: 2499.00, imageUrl: 'https://picsum.photos/seed/p2/400/400'),
-    _ProductData(uid: 'pr3', name: 'Minimalist Leather Wallet',     price: 799.00,  imageUrl: 'https://picsum.photos/seed/p3/400/400'),
-    _ProductData(uid: 'pr4', name: 'Ceramic Coffee Mug Set',        price: 549.00,  imageUrl: 'https://picsum.photos/seed/p4/400/400'),
-    _ProductData(uid: 'pr5', name: 'Wooden Phone Stand',            price: 349.00,  imageUrl: 'https://picsum.photos/seed/p5/400/400'),
-    _ProductData(uid: 'pr6', name: 'Scented Soy Candle Bundle',     price: 699.00,  imageUrl: 'https://picsum.photos/seed/p6/400/400'),
-  ];
+  const UserAllProductsTab({
+    super.key,
+    this.userId,
+    this.isOwnProfile = false,
+  });
+
+  @override
+  State<UserAllProductsTab> createState() => _UserAllProductsTabState();
+}
+
+class _UserAllProductsTabState extends State<UserAllProductsTab> {
+  List<_ProductData> _products = [];
+  bool _loading = true;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadProducts();
+  }
+
+  Future<void> _loadProducts() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+
+    try {
+      final userId = widget.userId;
+      if (userId == null) {
+        setState(() {
+          _loading = false;
+          _products = [];
+        });
+        return;
+      }
+
+      final data = await ApiMethods.authorizedGet('products/user/$userId');
+      final products = data['data']?['products'] as List<dynamic>? ?? [];
+
+      if (!mounted) return;
+      setState(() {
+        _products = products.map((p) => _ProductData.fromApi(p as Map<String, dynamic>)).toList();
+        _loading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _error = 'Failed to load products';
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    if (_loading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (_error != null) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(_error!, style: TextStyle(color: AppColors.mutedText(context))),
+            const SizedBox(height: 12),
+            TextButton(onPressed: _loadProducts, child: const Text('Retry')),
+          ],
+        ),
+      );
+    }
+
     if (_products.isEmpty) {
       return Center(
         child: Column(
@@ -153,4 +217,14 @@ class _ProductData {
     required this.imageUrl,
     this.currency = '₹',
   });
+
+  factory _ProductData.fromApi(Map<String, dynamic> json) {
+    return _ProductData(
+      uid: json['id'] as String? ?? '',
+      name: json['title'] as String? ?? '',
+      price: (json['price'] as num?)?.toDouble() ?? 0.0,
+      imageUrl: json['image_url'] as String? ?? '',
+      currency: json['currency'] as String? ?? '₹',
+    );
+  }
 }

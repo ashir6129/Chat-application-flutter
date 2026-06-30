@@ -139,10 +139,7 @@ class PostsService {
   static Future<List<PostModel>> getReels({int page = 1, int limit = 10}) async {
     final cacheKey = _reelsCacheKey(page, limit);
     try {
-      final data = await ApiMethods.authorizedPost('posts/get_reels', {
-        'page': page,
-        'limit': limit,
-      });
+      final data = await ApiMethods.authorizedGet('posts/reels?page=$page&limit=$limit');
       final reels = data['data']?['reels'] as List<dynamic>? ?? [];
       await OfflineCacheService.setJson(cacheKey, reels);
       return reels

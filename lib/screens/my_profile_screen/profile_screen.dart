@@ -15,6 +15,10 @@ import 'package:zyntraplus/screens/my_profile_screen/profile_details_widget.dart
 
 import 'package:zyntraplus/screens/my_profile_screen/tabs/all_products.dart';
 
+import 'package:zyntraplus/screens/user_profile_screen/tabs/all_reels.dart';
+
+import 'package:zyntraplus/screens/user_profile_screen/tabs/all_products.dart' as user_products;
+
 import 'package:zyntraplus/widgets/profile/profile_posts_list.dart';
 
 import '../../../core/app_colors.dart';
@@ -387,21 +391,14 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
 
                     ),
 
-                    ProfilePostsList(
-
-                      type: 'reels',
-
-                      managed: true,
-
-                      posts: _posts,
-
-                      loading: _loadingPosts,
-
-                      onPostsChanged: _onPostsChanged,
-
+                    UserAllReelsTab(
+                      isOwnProfile: true,
                     ),
 
-                    const AllProductsTab(),
+                    user_products.UserAllProductsTab(
+                      userId: _profile?.id,
+                      isOwnProfile: true,
+                    ),
 
                   ],
 

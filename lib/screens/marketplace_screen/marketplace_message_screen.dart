@@ -8,6 +8,6 @@ class MarketplaceMessagesScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ConversationsListView(embedded: embedded, directOnly: true);
+    return ConversationsListView(embedded: embedded, directOnly: true, spaceType: 'marketplace');
   }
 }

@@ -179,3 +179,39 @@ export async function getMessageReactions(messageId) {
   );
   return result.rows;
 }
+
+export async function pinMessage(conversationId, messageId, userId) {
+  const result = await query(
+    `INSERT INTO pinned_messages (conversation_id, message_id, user_id)
+     VALUES ($1, $2, $3)
+     ON CONFLICT (conversation_id, user_id) 
+     DO UPDATE SET message_id = $2, pinned_at = NOW()
+     RETURNING conversation_id, message_id, user_id, pinned_at`,
+    [conversationId, messageId, userId],
+  );
+  return result.rows[0] ?? null;
+}
+
+export async function unpinMessage(conversationId, userId) {
+  const result = await query(
+    `DELETE FROM pinned_messages
+     WHERE conversation_id = $1 AND user_id = $2
+     RETURNING conversation_id, user_id`,
+    [conversationId, userId],
+  );
+  return result.rows[0] ?? null;
+}
+
+export async function getPinnedMessages(conversationId, userId) {
+  const result = await query(
+    `SELECT pm.message_id, pm.pinned_at, m.body, m.message_type, m.created_at, u.username AS sender_username
+     FROM pinned_messages pm
+     JOIN messages m ON m.id = pm.message_id
+     JOIN users u ON u.id = m.sender_id
+     WHERE pm.conversation_id = $1 AND pm.user_id = $2
+     ORDER BY pm.pinned_at DESC
+     LIMIT 3`,
+    [conversationId, userId],
+  );
+  return result.rows;
+}

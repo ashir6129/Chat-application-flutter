@@ -3,6 +3,8 @@ import 'package:zyntraplus/api_services/follow_service.dart';
 import 'package:zyntraplus/api_services/user_service.dart';
 import 'package:zyntraplus/models/user_profile.dart';
 import 'package:zyntraplus/screens/user_profile_screen/follow_list_screen.dart';
+import 'package:zyntraplus/screens/user_profile_screen/tabs/all_reels.dart';
+import 'package:zyntraplus/screens/user_profile_screen/tabs/all_products.dart';
 import 'package:zyntraplus/widgets/profile/profile_posts_list.dart';
 import 'user_profile_details_widget.dart';
 import '../../../core/app_colors.dart';
@@ -215,15 +217,26 @@ class _UserProfileScreenState extends State<UserProfileScreen>
               Expanded(
                 child: TabBarView(
                   controller: _tabController,
-                  children: _tabTypes
-                      .map(
-                        (type) => ProfilePostsList(
-                          type: type,
-                          username: profile.username,
-                          readOnly: true,
-                        ),
-                      )
-                      .toList(),
+                  children: [
+                    ProfilePostsList(
+                      type: 'all',
+                      username: profile.username,
+                      readOnly: true,
+                    ),
+                    ProfilePostsList(
+                      type: 'photos',
+                      username: profile.username,
+                      readOnly: true,
+                    ),
+                    UserAllReelsTab(
+                      username: profile.username,
+                      isOwnProfile: isOwnProfile,
+                    ),
+                    UserAllProductsTab(
+                      userId: profile.id,
+                      isOwnProfile: isOwnProfile,
+                    ),
+                  ],
                 ),
               ),
             ],

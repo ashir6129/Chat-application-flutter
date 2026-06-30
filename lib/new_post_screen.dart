@@ -12,6 +12,8 @@ import 'core/media_edit_settings.dart';
 import 'core/profile_refresh.dart';
 import 'core/secure_storage_service.dart';
 import 'models/poll_data.dart';
+import 'screens/home_screen/add_product_to_post_screen.dart';
+import 'screens/home_screen/review_post_screen.dart';
 import 'widgets/post/media_editor_screen.dart';
 import 'widgets/post/post_attachment_sheets.dart';
 
@@ -63,6 +65,7 @@ class _SimplePostScreenState extends State<SimplePostScreen> {
   String _visibility = 'Public';
   String? _location;
   String? _attachedProduct;
+  AttachedProduct? _attachedProductData;
   String? _attachedPoll;
   List<String> _pollOptions = [];
   int _pollDurationDays = 7;
@@ -187,6 +190,28 @@ class _SimplePostScreenState extends State<SimplePostScreen> {
     });
   }
 
+  Future<void> _goToReview() async {
+    final caption = _controller.text.trim();
+    if (caption.isEmpty && _media.isEmpty && _attachedPoll == null) {
+      _showMessage('Add a caption, photo, video, or poll');
+      return;
+    }
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ReviewPostScreen(
+          caption: caption,
+          visibility: _visibility,
+          location: _location,
+          mediaCount: _media.length,
+          product: _attachedProductData,
+          isPublishing: _loading,
+          onPublish: _submitPost,
+        ),
+      ),
+    );
+  }
+
   Future<void> _submitPost() async {
     final caption = _controller.text.trim();
     if (caption.isEmpty && _media.isEmpty && _attachedPoll == null) {
@@ -214,6 +239,19 @@ class _SimplePostScreenState extends State<SimplePostScreen> {
           ).toCreateJson(durationDays: _pollDurationDays),
         };
       }
+      if (_attachedProductData != null) {
+        postMeta = {
+          ...?postMeta,
+          'product': {
+            'id': _attachedProductData!.id,
+            'title': _attachedProductData!.title,
+            'price': _attachedProductData!.price,
+            'currency': _attachedProductData!.currency,
+            'image_url': _attachedProductData!.imageUrl,
+            'is_resell': _attachedProductData!.isResell,
+          },
+        };
+      }
 
       final created = await PostsService.createPost(
         caption: caption,
@@ -227,7 +265,8 @@ class _SimplePostScreenState extends State<SimplePostScreen> {
       FeedRefresh.prepend(created);
       ProfileRefresh.trigger(silent: true);
       if (!mounted) return;
-      Navigator.pop(context);
+      // Pop both ReviewPostScreen and SimplePostScreen
+      Navigator.of(context).popUntil((route) => route.isFirst || route.settings.name != null);
     } catch (e) {
       _showMessage(PostsService.errorMessage(e));
     } finally {
@@ -377,66 +416,16 @@ class _SimplePostScreenState extends State<SimplePostScreen> {
   }
 
   Future<void> _pickProduct() async {
-    final nameCtrl = TextEditingController();
-    final priceCtrl = TextEditingController();
-    await showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) {
-        final accent = AppColors.buttonColor(ctx);
-        return Padding(
-          padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(ctx).bottom),
-          child: Container(
-            decoration: BoxDecoration(
-              color: AppColors.secondaryBackground(ctx),
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-            ),
-            padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Row(
-                  children: [
-                    Container(
-                      width: 44,
-                      height: 44,
-                      decoration: BoxDecoration(color: accent.withValues(alpha: 0.15), shape: BoxShape.circle),
-                      child: Icon(Iconsax.shopping_bag, color: accent),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text('Attach product', style: TextStyle(color: AppColors.primaryText(ctx), fontWeight: FontWeight.w700, fontSize: 17)),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                TextField(controller: nameCtrl, style: TextStyle(color: AppColors.primaryText(ctx)), decoration: postSheetInputDecoration(ctx, hint: 'Product name')),
-                const SizedBox(height: 10),
-                TextField(controller: priceCtrl, style: TextStyle(color: AppColors.primaryText(ctx)), decoration: postSheetInputDecoration(ctx, hint: 'Price')),
-                const SizedBox(height: 16),
-                SizedBox(
-                  width: double.infinity,
-                  child: FilledButton(
-                    onPressed: () {
-                      if (nameCtrl.text.trim().isEmpty) return;
-                      Navigator.pop(ctx);
-                      setState(() {
-                        _attachedProduct = '${nameCtrl.text.trim()} — ${priceCtrl.text.trim()}';
-                        _activeChips.add('Product');
-                      });
-                      _insertAtCursor('🛍 ${nameCtrl.text.trim()} (${priceCtrl.text.trim()}) ');
-                    },
-                    style: FilledButton.styleFrom(backgroundColor: accent, padding: const EdgeInsets.symmetric(vertical: 14)),
-                    child: const Text('Attach product'),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
+    final result = await Navigator.push<AttachedProduct>(
+      context,
+      MaterialPageRoute(builder: (_) => const AddProductToPostScreen()),
     );
+    if (result == null || !mounted) return;
+    setState(() {
+      _attachedProductData = result;
+      _attachedProduct = '${result.title} — ${result.formattedPrice}';
+      _activeChips.add('Product');
+    });
   }
 
   Future<void> _pickPoll() async {
@@ -658,7 +647,7 @@ class _SimplePostScreenState extends State<SimplePostScreen> {
           ),
           const Spacer(),
           GestureDetector(
-            onTap: _loading ? null : _submitPost,
+            onTap: _loading ? null : _goToReview,
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 10),
               decoration: BoxDecoration(
@@ -672,7 +661,7 @@ class _SimplePostScreenState extends State<SimplePostScreen> {
                       child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                     )
                   : const Text(
-                      'Post',
+                      'Next',
                       style: TextStyle(
                         color: Colors.white,
                         fontWeight: FontWeight.w700,

@@ -14,6 +14,7 @@ import 'location_helper.dart';
 
 import '../../core/app_colors.dart';
 import '../../core/main_tab_navigation.dart';
+import '../../core/tab_scroll_to_top.dart';
 import '../../boxes/send_box_screen.dart';
 import '../../boxes/receive_box.dart';
 
@@ -88,6 +89,7 @@ class _PeopleNearbyScreenState extends State<PeopleNearbyScreen> {
   StreamSubscription? _boxStatusChangedSubscription;
 
   bool _hasUnreadMessages = false;
+  final ScrollController _scrollController = ScrollController();
 
   @override
   void initState() {
@@ -95,6 +97,17 @@ class _PeopleNearbyScreenState extends State<PeopleNearbyScreen> {
     _loadNearbyUsers();
     _subscribeToBoxEvents();
     _checkUnreadCounts();
+    TabScrollToTop.register(3, _scrollToTop);
+  }
+
+  void _scrollToTop() {
+    if (_scrollController.hasClients) {
+      _scrollController.animateTo(
+        0.0,
+        duration: const Duration(milliseconds: 500),
+        curve: Curves.easeOut,
+      );
+    }
   }
 
   Future<void> _checkUnreadCounts() async {
@@ -107,8 +120,10 @@ class _PeopleNearbyScreenState extends State<PeopleNearbyScreen> {
 
   @override
   void dispose() {
+    TabScrollToTop.unregister(3);
     _boxReceivedSubscription?.cancel();
     _boxStatusChangedSubscription?.cancel();
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -328,6 +343,7 @@ class _PeopleNearbyScreenState extends State<PeopleNearbyScreen> {
       backgroundColor: AppColors.primaryBackground(context),
       body: SafeArea(
         child: ListView(
+          controller: _scrollController,
           physics: const BouncingScrollPhysics(),
           padding: const EdgeInsets.symmetric(vertical: 16),
           children: [

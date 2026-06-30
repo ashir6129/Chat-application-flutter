@@ -72,7 +72,14 @@ class FeedUserAvatar extends StatelessWidget {
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         border: effectiveBorder,
-        color: AppColors.composerBackground(context),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            accentColor.withValues(alpha: 0.25),
+            accentColor.withValues(alpha: 0.05),
+          ],
+        ),
       ),
       alignment: Alignment.center,
       child: Text(
@@ -81,7 +88,6 @@ class FeedUserAvatar extends StatelessWidget {
           color: accentColor,
           fontSize: size * 0.4,
           fontWeight: FontWeight.w700,
-          height: 1,
         ),
       ),
     );

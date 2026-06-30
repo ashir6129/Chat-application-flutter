@@ -1,8 +1,11 @@
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:image_picker/image_picker.dart';
+import '../../api_services/media_service.dart';
+import '../../core/api_methods.dart';
 import '../../core/app_colors.dart';
 
 class CreateListingScreen extends StatefulWidget {
@@ -64,7 +67,7 @@ class _CreateListingScreenState extends State<CreateListingScreen> {
     });
   }
 
-  // ── Submit (local only for now) ────────────────────────────────
+  // ── Submit ─────────────────────────────────────────────────────
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
@@ -72,14 +75,40 @@ class _CreateListingScreenState extends State<CreateListingScreen> {
 
     setState(() => _isSubmitting = true);
 
-    // Simulate a brief delay (remove when API is ready)
-    await Future.delayed(const Duration(milliseconds: 800));
+    try {
+      // 1. Upload images
+      final bytesList = <Uint8List>[];
+      final filenames = <String>[];
+      for (var i = 0; i < _images.length; i++) {
+        bytesList.add(await _images[i].readAsBytes());
+        filenames.add('product_${DateTime.now().millisecondsSinceEpoch}_$i.jpg');
+      }
+      final urls = await MediaService.uploadFiles(bytesList: bytesList, filenames: filenames);
 
-    if (mounted) {
-      setState(() => _isSubmitting = false);
-      _showSnack('Listing published! 🎉', success: true);
-      await Future.delayed(const Duration(milliseconds: 600));
-      if (mounted) Navigator.pop(context, true);
+      // 2. Create product in backend
+      await ApiMethods.authorizedPost('products', {
+        'title': _titleController.text.trim(),
+        'description': _descriptionController.text.trim(),
+        'price': double.tryParse(_priceController.text.trim()) ?? 0,
+        'stock': 999, // default stock
+        'image_url': urls.isNotEmpty ? urls.first : null,
+        'category': _selectedCategory,
+        'condition': _selectedCondition,
+        'allow_resell': _allowResell,
+        'resell_margin_pct': _allowResell
+            ? int.tryParse(_marginController.text.trim()) ?? 0
+            : 0,
+      });
+
+      if (mounted) {
+        _showSnack('Listing published! 🎉', success: true);
+        await Future.delayed(const Duration(milliseconds: 600));
+        if (mounted) Navigator.pop(context, true);
+      }
+    } catch (e) {
+      if (mounted) _showSnack('Failed: ${e.toString()}');
+    } finally {
+      if (mounted) setState(() => _isSubmitting = false);
     }
   }
 

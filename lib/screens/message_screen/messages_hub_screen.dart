@@ -166,13 +166,18 @@ class _HubHeader extends StatelessWidget {
                 ),
               ),
               _HeaderIconBtn(
-                icon: Iconsax.setting_4,
+                icon: Iconsax.filter,
                 onTap: () {},
               ),
               const SizedBox(width: 8),
               _HeaderIconBtn(
                 icon: Iconsax.edit,
                 onTap: onCompose,
+              ),
+              const SizedBox(width: 8),
+              _HeaderIconBtn(
+                icon: Icons.more_vert_rounded,
+                onTap: () {},
               ),
             ],
           ),

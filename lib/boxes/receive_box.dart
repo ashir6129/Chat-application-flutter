@@ -118,16 +118,6 @@ class ReceiveBoxScreen extends StatelessWidget {
           Stack(
             alignment: Alignment.center,
             children: [
-              Positioned(
-                top: -8,
-                left: 40,
-                child: _buildCoinParticle(size: 14),
-              ),
-              Positioned(
-                top: -5,
-                right: 40,
-                child: _buildCoinParticle(size: 10),
-              ),
               Column(
                 children: [
                   Text(
@@ -303,9 +293,6 @@ class ReceiveBoxScreen extends StatelessWidget {
                                 color: AppColors.primaryText(context),
                                 fontSize: 14,
                                 fontWeight: FontWeight.w600)),
-                        const SizedBox(width: 4),
-                        const Icon(Icons.circle,
-                            color: Color(0xFF00A884), size: 8),
                       ],
                     ),
                     const SizedBox(height: 2),
@@ -332,50 +319,10 @@ class ReceiveBoxScreen extends StatelessWidget {
   }
 
   Widget _buildActionButtons(BuildContext context) {
-    return Row(
+    return Column(
       children: [
-        Expanded(
-          child: OutlinedButton.icon(
-            onPressed: () async {
-              showDialog(
-                context: context,
-                barrierDismissible: false,
-                builder: (_) => const Center(
-                  child: CircularProgressIndicator(
-                    valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFFF4D6D)),
-                  ),
-                ),
-              );
-              try {
-                await BoxService.updateBoxRequestStatus(request['id'].toString(), 'declined');
-                if (context.mounted) {
-                  Navigator.pop(context); // Pop loading dialog
-                  Navigator.pop(context, true); // Pop screen
-                }
-              } catch (e) {
-                if (context.mounted) {
-                  Navigator.pop(context); // Pop loading dialog
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text(e.toString())),
-                  );
-                }
-              }
-            },
-            icon: const Icon(Icons.close, size: 18),
-            label: const Text('Decline',
-                style:
-                TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
-            style: OutlinedButton.styleFrom(
-              foregroundColor: const Color(0xFFFF4D6D),
-              side: const BorderSide(color: Color(0xFFFF4D6D), width: 1.5),
-              padding: const EdgeInsets.symmetric(vertical: 14),
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8)),
-            ),
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
+        SizedBox(
+          width: double.infinity,
           child: ElevatedButton.icon(
             onPressed: () async {
               showDialog(
@@ -417,17 +364,59 @@ class ReceiveBoxScreen extends StatelessWidget {
                 }
               }
             },
-            icon: const Icon(Icons.check, size: 18),
+            icon: const Icon(Icons.check_circle_outline, size: 22),
             label: const Text('Accept & Reply',
                 style:
-                TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+                TextStyle(fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 0.3)),
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF00C896),
               foregroundColor: Colors.black,
-              padding: const EdgeInsets.symmetric(vertical: 14),
+              padding: const EdgeInsets.symmetric(vertical: 16),
               shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8)),
-              elevation: 0,
+                  borderRadius: BorderRadius.circular(12)),
+              elevation: 2,
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton.icon(
+            onPressed: () async {
+              showDialog(
+                context: context,
+                barrierDismissible: false,
+                builder: (_) => const Center(
+                  child: CircularProgressIndicator(
+                    valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFFF4D6D)),
+                  ),
+                ),
+              );
+              try {
+                await BoxService.updateBoxRequestStatus(request['id'].toString(), 'declined');
+                if (context.mounted) {
+                  Navigator.pop(context); // Pop loading dialog
+                  Navigator.pop(context, true); // Pop screen
+                }
+              } catch (e) {
+                if (context.mounted) {
+                  Navigator.pop(context); // Pop loading dialog
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text(e.toString())),
+                  );
+                }
+              }
+            },
+            icon: const Icon(Icons.cancel_outlined, size: 22),
+            label: const Text('Decline Request',
+                style:
+                TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: const Color(0xFFFF4D6D),
+              side: const BorderSide(color: Color(0xFFFF4D6D), width: 1.5),
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
             ),
           ),
         ),

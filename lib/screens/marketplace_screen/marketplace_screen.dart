@@ -7,7 +7,9 @@ import 'package:zyntraplus/screens/marketplace_screen/create_product_screen.dart
 import 'package:zyntraplus/screens/marketplace_screen/marketplace_details_screen.dart';
 import 'package:zyntraplus/screens/message_screen/messages_hub_screen.dart';
 import 'package:zyntraplus/screens/message_screen/switch_chat_sheet.dart';
+import '../../core/api_methods.dart';
 import '../../core/app_colors.dart';
+import '../../core/tab_scroll_to_top.dart';
 
 class MarketplaceScreen extends StatefulWidget {
   const MarketplaceScreen({super.key});
@@ -100,6 +102,69 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> {
     "image": "https://i.pinimg.com/736x/99/58/39/9958394ff4d9b24871996ba317e613fd.jpg",
   };
 
+  List<Map<String, dynamic>> _fetchedListings = [];
+  bool _loading = false;
+  final ScrollController _scrollController = ScrollController();
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPublicProducts();
+    TabScrollToTop.register(2, _scrollToTop);
+  }
+
+  @override
+  void dispose() {
+    TabScrollToTop.unregister(2);
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _scrollToTop() {
+    if (_scrollController.hasClients) {
+      _scrollController.animateTo(
+        0.0,
+        duration: const Duration(milliseconds: 500),
+        curve: Curves.easeOut,
+      );
+    }
+  }
+
+
+  Future<void> _loadPublicProducts() async {
+    if (mounted) setState(() => _loading = true);
+    try {
+      final res = await ApiMethods.authorizedGet('products');
+      final list = (res['data']?['products'] as List<dynamic>? ?? [])
+          .map((e) {
+            final map = Map<String, dynamic>.from(e as Map);
+            final currency = map['currency']?.toString() ?? '₦';
+            final price = map['price']?.toString() ?? '0';
+            return {
+              "id": map['id']?.toString(),
+              "name": map['title']?.toString() ?? '',
+              "price": '$currency$price',
+              "distance": "Nearby",
+              "image": map['image_url']?.toString() ?? 'https://i.pinimg.com/736x/99/58/39/9958394ff4d9b24871996ba317e613fd.jpg',
+              "condition": map['condition']?.toString() ?? 'Good',
+              "time": "Just now",
+              "category": map['category']?.toString() ?? 'Electronics',
+              "description": map['description']?.toString() ?? '',
+              "seller_username": map['seller_username']?.toString(),
+            };
+          })
+          .toList();
+      if (mounted) {
+        setState(() {
+          _fetchedListings = list;
+          _loading = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
   // ── Navigation helper ─────────────────────────────────────────────────────
   void _goToDetail(Map<String, dynamic> item) {
     Navigator.push(
@@ -110,11 +175,19 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> {
     );
   }
 
+  List<Map<String, dynamic>> get _combinedListings {
+    return [
+      ..._fetchedListings,
+      ...nearbyListings,
+    ];
+  }
+
   List<Map<String, dynamic>> get _filteredListings {
-    if (selectedIndex == 0) return nearbyListings;
+    final base = _combinedListings;
+    if (selectedIndex == 0) return base;
     final cat = categories[selectedIndex]['name'] as String;
-    if (cat == 'More') return nearbyListings;
-    return nearbyListings.where((item) {
+    if (cat == 'More') return base;
+    return base.where((item) {
       final c = (item['category'] as String?) ?? '';
       if (cat == 'Electronics') return c == 'Electronics';
       if (cat == 'Vehicles') return c.contains('Vehicle') || c == 'Sports';
@@ -131,7 +204,7 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> {
   List<Map<String, dynamic>> get _allListings {
     return [
       ...nearbyPopular,
-      ...nearbyListings,
+      ..._combinedListings,
     ];
   }
 
@@ -186,13 +259,16 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> {
         ),
         actions: [
           IconButton(
-            onPressed: () {
-              Navigator.push(
+            onPressed: () async {
+              final result = await Navigator.push(
                 context,
                 MaterialPageRoute(
                   builder: (_) => const CreateListingScreen(),
                 ),
               );
+              if (result == true) {
+                _loadPublicProducts();
+              }
             },
             icon: Icon(Iconsax.add_square,
                 color: AppColors.primaryText(context), size: 22),
@@ -219,6 +295,7 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> {
       body: SafeArea(
         top: false,
         child: SingleChildScrollView(
+          controller: _scrollController,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [

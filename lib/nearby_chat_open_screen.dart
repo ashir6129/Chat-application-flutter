@@ -294,7 +294,14 @@ class _TipBanner extends StatelessWidget {
 }
 
 // ─── Chat Messages List ───────────────────────────────────────────────────────
-class _ChatList extends StatelessWidget {
+class _ChatList extends StatefulWidget {
+  @override
+  State<_ChatList> createState() => _ChatListState();
+}
+
+class _ChatListState extends State<_ChatList> {
+  String? _pinnedMessageText;
+
   final List<_Msg> messages = const [
     _Msg(
         text: 'Hey there! 😊\nHow\'s your day going?',
@@ -327,27 +334,70 @@ class _ChatList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ListView(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+    return Column(
       children: [
-        // "Today" divider
-        Center(
-          child: Container(
-            margin: const EdgeInsets.symmetric(vertical: 10),
-            padding:
-            const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-            decoration: BoxDecoration(
-              color: AppColors.secondaryBackground(context),
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Text(
-              'Today',
-              style: TextStyle(
-                  color: AppColors.mutedText(context), fontSize: 12),
+        if (_pinnedMessageText != null)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            color: ChatTheme.barBackground,
+            child: Row(
+              children: [
+                Container(width: 3, height: 36, color: AppColors.buttonColor(context)),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('Pinned Message', style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600)),
+                      Text(
+                        _pinnedMessageText!,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(color: ChatTheme.mutedText, fontSize: 12),
+                      ),
+                    ],
+                  ),
+                ),
+                GestureDetector(
+                  onTap: () => setState(() => _pinnedMessageText = null),
+                  child: const Icon(Icons.close, color: ChatTheme.mutedText, size: 18),
+                ),
+              ],
             ),
           ),
+        Expanded(
+          child: ListView(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            children: [
+              // "Today" divider
+              Center(
+                child: Container(
+                  margin: const EdgeInsets.symmetric(vertical: 10),
+                  padding:
+                  const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: AppColors.secondaryBackground(context),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    'Today',
+                    style: TextStyle(
+                        color: AppColors.mutedText(context), fontSize: 12),
+                  ),
+                ),
+              ),
+              ...messages.map((msg) => _ChatBubble(
+                msg: msg,
+                onPin: () {
+                  setState(() => _pinnedMessageText = msg.text);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Message pinned'), duration: Duration(seconds: 1)),
+                  );
+                },
+              )).toList(),
+            ],
+          ),
         ),
-        ...messages.map((msg) => _ChatBubble(msg: msg)).toList(),
       ],
     );
   }
@@ -367,7 +417,9 @@ class _Msg {
 
 class _ChatBubble extends StatelessWidget {
   final _Msg msg;
-  const _ChatBubble({required this.msg});
+  final VoidCallback onPin;
+
+  const _ChatBubble({required this.msg, required this.onPin});
 
   @override
   Widget build(BuildContext context) {
@@ -377,7 +429,7 @@ class _ChatBubble extends StatelessWidget {
         messageText: msg.text,
         isMine: msg.isMe,
         onReply: () {},
-        onPin: () {},
+        onPin: onPin,
       ),
       child: Container(
         constraints: BoxConstraints(

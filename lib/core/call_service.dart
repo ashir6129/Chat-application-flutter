@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 import 'media_url_utils.dart';
+import 'call_history_service.dart';
 import 'call_permissions.dart';
 import 'call_ui.dart';
 import 'socket_service.dart';
@@ -59,11 +60,25 @@ class CallService {
   final List<Map<String, dynamic>> _pendingCandidates = [];
   RTCSessionDescription? _remoteOffer;
 
+  // ── Call history tracking ──────────────────────────────────────────────────
+  DateTime? _callStart;
+  bool _callWasConnected = false;
+
   final Map<String, dynamic> _configuration = {
     'iceServers': [
       {'urls': 'stun:stun.l.google.com:19302'},
       {'urls': 'stun:stun1.l.google.com:19302'},
       {'urls': 'stun:stun2.l.google.com:19302'},
+      {
+        'urls': 'turn:openrelay.metered.ca:80',
+        'username': 'openrelayproject',
+        'credential': 'openrelayproject'
+      },
+      {
+        'urls': 'turn:openrelay.metered.ca:443',
+        'username': 'openrelayproject',
+        'credential': 'openrelayproject'
+      },
     ],
     'sdpSemantics': 'unified-plan',
   };
@@ -74,8 +89,18 @@ class CallService {
     if (newState == CallState.connected && !isVideoCall) {
       _enableSpeakerByDefault();
     }
+    if (newState == CallState.connected) {
+      _callStart = DateTime.now();
+      _callWasConnected = true;
+    }
     if (newState == CallState.incoming) {
+      _callStart = DateTime.now();
+      _callWasConnected = false;
       CallUi.showFromRoot();
+    }
+    if (newState == CallState.outgoing) {
+      _callStart = DateTime.now();
+      _callWasConnected = false;
     }
   }
 
@@ -221,6 +246,13 @@ class CallService {
       _localStream = await navigator.mediaDevices.getUserMedia(
         _buildMediaConstraints(),
       );
+      
+      // Ensure audio tracks are enabled
+      for (final track in _localStream!.getAudioTracks()) {
+        track.enabled = true;
+      }
+      
+      debugPrint('CallService: Local media acquired - audio tracks: ${_localStream!.getAudioTracks().length}, video tracks: ${_localStream!.getVideoTracks().length}');
     } catch (e) {
       debugPrint('CallService getUserMedia error: $e');
       if (isVideoCall) {
@@ -252,6 +284,7 @@ class CallService {
     _peerConnection!.onIceCandidate = (RTCIceCandidate candidate) {
       if (currentPeerId == null) return;
       if (candidate.candidate == null || candidate.candidate!.isEmpty) return;
+      debugPrint('CallService: ICE candidate generated for ${currentPeerId}');
       SocketService.emitCallIceCandidate({
         'to_id': currentPeerId,
         'candidate': candidate.candidate,
@@ -261,23 +294,34 @@ class CallService {
     };
 
     _peerConnection!.onTrack = (RTCTrackEvent event) {
+      debugPrint('CallService: onTrack event - kind: ${event.track.kind}, streams: ${event.streams.length}');
       if (event.streams.isNotEmpty) {
         _attachRemoteStream(event.streams.first);
       }
     };
 
     _peerConnection!.onAddStream = (MediaStream stream) {
+      debugPrint('CallService: onAddStream event - audio tracks: ${stream.getAudioTracks().length}, video tracks: ${stream.getVideoTracks().length}');
       _attachRemoteStream(stream);
     };
 
     _peerConnection!.onIceConnectionState = (RTCIceConnectionState state) {
-      debugPrint('CallService ICE: $state');
+      debugPrint('CallService: ICE connection state changed: $state');
       if (state == RTCIceConnectionState.RTCIceConnectionStateFailed) {
+        debugPrint('CallService: ICE connection failed, ending call');
         endCall(emit: true);
+      } else if (state == RTCIceConnectionState.RTCIceConnectionStateConnected) {
+        debugPrint('CallService: ICE connection established');
       }
     };
 
+    _peerConnection!.onConnectionState = (RTCPeerConnectionState state) {
+      debugPrint('CallService: Peer connection state changed: $state');
+    };
+
+    debugPrint('CallService: Adding local tracks to peer connection');
     for (final track in _localStream!.getTracks()) {
+      debugPrint('CallService: Adding track - kind: ${track.kind}, id: ${track.id}, enabled: ${track.enabled}');
       await _peerConnection!.addTrack(track, _localStream!);
     }
   }
@@ -285,6 +329,15 @@ class CallService {
   void _attachRemoteStream(MediaStream stream) {
     _remoteStream = stream;
     remoteRenderer.srcObject = stream;
+    
+    debugPrint('CallService: Remote stream attached - audio tracks: ${stream.getAudioTracks().length}, video tracks: ${stream.getVideoTracks().length}');
+    
+    // Ensure remote audio tracks are enabled
+    for (final track in stream.getAudioTracks()) {
+      track.enabled = true;
+      debugPrint('CallService: Remote audio track enabled: ${track.id}');
+    }
+    
     if (!_remoteStreamController.isClosed) {
       _remoteStreamController.add(null);
     }
@@ -506,6 +559,41 @@ class CallService {
   }
 
   Future<void> _cleanup() async {
+    // ── Record call history ───────────────────────────────────────────────
+    final previousState = _state;
+    final wasIncoming = previousState == CallState.incoming ||
+        (previousState == CallState.connected && currentPeerId != null);
+    final wasMissed = previousState == CallState.incoming && !_callWasConnected;
+
+    if (currentPeerId != null && currentPeerName != null) {
+      CallHistoryType histType;
+      if (wasMissed) {
+        histType = CallHistoryType.missed;
+      } else if (wasIncoming) {
+        histType = CallHistoryType.incoming;
+      } else {
+        histType = CallHistoryType.outgoing;
+      }
+
+      final duration = (_callWasConnected && _callStart != null)
+          ? DateTime.now().difference(_callStart!)
+          : null;
+
+      CallHistoryService.instance.record(CallHistoryEntry(
+        id: '${DateTime.now().millisecondsSinceEpoch}_$currentPeerId',
+        peerId: currentPeerId!,
+        peerName: currentPeerName!,
+        peerAvatar: currentPeerAvatar,
+        type: histType,
+        callType: isVideoCall ? CallHistoryCallType.video : CallHistoryCallType.voice,
+        timestamp: _callStart ?? DateTime.now(),
+        duration: duration,
+      ));
+    }
+    _callStart = null;
+    _callWasConnected = false;
+    // ─────────────────────────────────────────────────────────────────────
+
     if (_state != CallState.ended && _state != CallState.idle) {
       _setState(CallState.ended);
     }

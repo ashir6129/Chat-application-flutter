@@ -13,6 +13,7 @@ import '../../widgets/feed/feed_photo_viewer.dart';
 import '../../widgets/feed/feed_poll_card.dart';
 import '../../widgets/feed/feed_sheets.dart';
 import '../../widgets/feed/feed_video_preview.dart';
+import '../../widgets/feed/feed_attachments.dart';
 import '../../widgets/feed/menu_bottom_sheet.dart';
 import '../../widgets/feed/post_widget.dart';
 
@@ -379,6 +380,7 @@ class _ProfilePostCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final accent = AppColors.buttonColor(context);
     return Container(
       decoration: BoxDecoration(
         color: AppColors.primaryBackground(context),
@@ -387,13 +389,56 @@ class _ProfilePostCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // ── Author header ──────────────────────────────────────────
           Padding(
-            padding: const EdgeInsets.fromLTRB(6, 4, 2, 0),
+            padding: const EdgeInsets.fromLTRB(12, 10, 4, 4),
             child: Row(
               children: [
+                // Avatar
+                CircleAvatar(
+                  radius: 18,
+                  backgroundColor: accent.withValues(alpha: 0.15),
+                  backgroundImage: post.authorAvatarUrl != null && post.authorAvatarUrl!.isNotEmpty
+                      ? NetworkImage(post.authorAvatarUrl!)
+                      : null,
+                  child: (post.authorAvatarUrl == null || post.authorAvatarUrl!.isEmpty)
+                      ? Text(
+                          post.user.isNotEmpty ? post.user[0].toUpperCase() : '?',
+                          style: TextStyle(
+                            color: accent,
+                            fontWeight: FontWeight.w700,
+                            fontSize: 14,
+                          ),
+                        )
+                      : null,
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        post.user.isNotEmpty ? post.user : 'You',
+                        style: TextStyle(
+                          color: AppColors.primaryText(context),
+                          fontWeight: FontWeight.w600,
+                          fontSize: 13,
+                        ),
+                      ),
+                      if (post.time.isNotEmpty)
+                        Text(
+                          post.time,
+                          style: TextStyle(
+                            color: AppColors.secondaryText(context),
+                            fontSize: 11,
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
                 if (post.isArchived)
                   Container(
-                    margin: const EdgeInsets.only(left: 8),
+                    margin: const EdgeInsets.only(right: 6),
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                     decoration: BoxDecoration(
                       color: AppColors.secondaryBackground(context),
@@ -404,7 +449,6 @@ class _ProfilePostCard extends StatelessWidget {
                       style: TextStyle(color: AppColors.mutedText(context), fontSize: 10),
                     ),
                   ),
-                const Spacer(),
                 if (!readOnly)
                   IconButton(
                     icon: Icon(Icons.more_horiz, color: AppColors.secondaryText(context), size: 20),
@@ -421,6 +465,7 @@ class _ProfilePostCard extends StatelessWidget {
               ],
             ),
           ),
+          // ── Post content ───────────────────────────────────────────
           if (post.poll != null)
             FeedPollCard(
               poll: post.poll!,
@@ -430,6 +475,7 @@ class _ProfilePostCard extends StatelessWidget {
           if (post.displayCaption.isNotEmpty)
             FeedCaptionText(
               caption: post.displayCaption,
+              hasMedia: post.images.isNotEmpty,
               padding: const EdgeInsets.fromLTRB(14, 4, 14, 8),
             ),
           if (post.images.isNotEmpty)
@@ -454,8 +500,25 @@ class _ProfilePostCard extends StatelessWidget {
                   commentCount: post.comments,
                   shareCount: post.shareCount,
                   liked: post.liked,
+                  product: post.product != null
+                      ? FeedPhotoViewerProduct(
+                          name: post.product!.name,
+                          price: post.product!.price,
+                          imageUrl: post.product!.imageUrl,
+                          currency: post.product!.currency,
+                        )
+                      : null,
                 ),
               ),
+          if (post.product != null)
+            FeedProductAttachmentCard(
+              name: post.product!.name,
+              price: post.product!.price,
+              imageUrl: post.product!.imageUrl,
+              currency: post.product!.currency,
+              stock: post.product!.stock,
+              onBuyNow: () {},
+            ),
           PostsStatsWidget(
             initialLikeCount: post.likes,
             commentCount: post.comments,

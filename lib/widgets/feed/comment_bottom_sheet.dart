@@ -341,36 +341,39 @@ class _CommentsBottomSheetState extends State<CommentsBottomSheet> {
 
   @override
   Widget build(BuildContext context) {
-    return DraggableScrollableSheet(
-      expand: false,
-      initialChildSize: 0.55,
-      maxChildSize: 0.92,
-      minChildSize: 0.35,
-      builder: (_, scrollController) {
-        return Container(
-          decoration: BoxDecoration(
-            color: AppColors.secondaryBackground(context),
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-          ),
-          child: Column(
-            children: [
-              _dragHandle(),
-              Text(
-                'Comments',
-                style: TextStyle(
-                  fontWeight: FontWeight.w600,
-                  fontSize: 16,
-                  color: AppColors.primaryText(context),
+    return Padding(
+      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      child: DraggableScrollableSheet(
+        expand: false,
+        initialChildSize: 0.55,
+        maxChildSize: 0.92,
+        minChildSize: 0.35,
+        builder: (_, scrollController) {
+          return Container(
+            decoration: BoxDecoration(
+              color: AppColors.secondaryBackground(context),
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+            ),
+            child: Column(
+              children: [
+                _dragHandle(),
+                Text(
+                  'Comments',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 16,
+                    color: AppColors.primaryText(context),
+                  ),
                 ),
-              ),
-              const SizedBox(height: 10),
-              Expanded(child: _buildBody(scrollController)),
-              if (_replyingToUser != null) _replyBanner(),
-              _inputField(),
-            ],
-          ),
-        );
-      },
+                const SizedBox(height: 10),
+                Expanded(child: _buildBody(scrollController)),
+                if (_replyingToUser != null) _replyBanner(),
+                _inputField(),
+              ],
+            ),
+          );
+        },
+      ),
     );
   }
 

@@ -11,6 +11,7 @@ import '../monetization_screen/in_app_tokens_screen.dart';
 import '../monetization_screen/monetization_dashboard.dart';
 import 'discover_more_screen.dart';
 import 'profile_screen.dart';
+import '../../core/tab_scroll_to_top.dart';
 
 /// Profile hub — quick access, tokens promo, and feature grid.
 class ProfileLandingScreen extends StatefulWidget {
@@ -30,6 +31,7 @@ class _ProfileLandingScreenState extends State<ProfileLandingScreen> {
   UserProfile? _profile;
   bool _loading = true;
   late final ProfileRefreshListener _profileRefreshListener;
+  final ScrollController _scrollController = ScrollController();
 
   @override
   void initState() {
@@ -39,12 +41,25 @@ class _ProfileLandingScreenState extends State<ProfileLandingScreen> {
     _profileRefreshListener = ({bool silent = false}) => _loadProfile(silent: silent);
     ProfileRefresh.register(_profileRefreshListener);
     _loadProfile(silent: _profile != null);
+    TabScrollToTop.register(4, _scrollToTop);
   }
 
   @override
   void dispose() {
+    TabScrollToTop.unregister(4);
     ProfileRefresh.unregister(_profileRefreshListener);
+    _scrollController.dispose();
     super.dispose();
+  }
+
+  void _scrollToTop() {
+    if (_scrollController.hasClients) {
+      _scrollController.animateTo(
+        0.0,
+        duration: const Duration(milliseconds: 500),
+        curve: Curves.easeOut,
+      );
+    }
   }
 
   Future<void> _loadProfile({bool silent = false}) async {
@@ -74,6 +89,7 @@ class _ProfileLandingScreenState extends State<ProfileLandingScreen> {
       backgroundColor: _bg,
       body: SafeArea(
         child: SingleChildScrollView(
+          controller: _scrollController,
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,

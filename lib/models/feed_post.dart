@@ -164,6 +164,18 @@ class PostModel {
     final poll = PollData.fromJson(postMeta?['poll'] as Map<String, dynamic>?)
         ?? PollData.parseLegacyCaption(json['caption']?.toString() ?? '');
 
+    // Parse attached product from post_meta
+    FeedProductInfo? product;
+    final productMeta = postMeta?['product'] as Map<String, dynamic>?;
+    if (productMeta != null) {
+      product = FeedProductInfo(
+        name: productMeta['title']?.toString() ?? productMeta['name']?.toString() ?? '',
+        price: (productMeta['price'] as num?)?.toDouble() ?? 0.0,
+        imageUrl: productMeta['image_url']?.toString() ?? '',
+        currency: productMeta['currency']?.toString() ?? '₦',
+      );
+    }
+
     return PostModel(
       id: json['id']?.toString() ?? '',
       userId: author['id']?.toString() ?? json['user_id']?.toString() ?? '',
@@ -181,6 +193,7 @@ class PostModel {
       authorAvatarUrl: MediaUrlUtils.resolveUrl(author['avatar_url']?.toString()),
       mediaMeta: mediaMeta,
       poll: poll,
+      product: product,
       isArchived: json['is_archived'] == true,
     );
   }

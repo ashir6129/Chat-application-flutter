@@ -13,6 +13,9 @@ class SocialAuthService {
   static GoogleSignIn _googleSignIn() {
     return GoogleSignIn(
       scopes: const ['email', 'profile'],
+      // serverClientId is the Web OAuth 2.0 Client ID from Google Cloud Console.
+      // Without it, idToken will be null on Android.
+      // Set via: flutter run --dart-define=GOOGLE_SERVER_CLIENT_ID=<your-web-client-id>
       serverClientId: ApiConfig.googleServerClientId.isEmpty
           ? null
           : ApiConfig.googleServerClientId,
@@ -26,6 +29,10 @@ class SocialAuthService {
 
   static Future<void> signInWithGoogle() async {
     final google = _googleSignIn();
+
+    // Sign out first to avoid stale/cached accounts with missing idToken.
+    await google.signOut();
+
     final account = await google.signIn();
     if (account == null) {
       throw Exception('Google sign-in cancelled');
@@ -33,8 +40,17 @@ class SocialAuthService {
 
     final auth = await account.authentication;
     final idToken = auth.idToken;
+
     if (idToken == null || idToken.isEmpty) {
-      throw Exception('Google ID token missing. Set GOOGLE_SERVER_CLIENT_ID.');
+      throw Exception(
+        'Google ID token is missing.\n\n'
+        'You must add a Web OAuth 2.0 Client ID as serverClientId.\n'
+        '1. Go to console.cloud.google.com → APIs & Services → Credentials\n'
+        '2. Create an OAuth 2.0 Client ID (type: Web application)\n'
+        '3. Copy the Client ID and run:\n'
+        '   flutter run --dart-define=GOOGLE_SERVER_CLIENT_ID=<your-web-client-id>\n'
+        '4. Also add it to your backend .env as GOOGLE_CLIENT_ID',
+      );
     }
 
     await AuthService.loginWithGoogle(idToken: idToken);

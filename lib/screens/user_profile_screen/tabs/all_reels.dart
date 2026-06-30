@@ -1,60 +1,95 @@
 import 'package:flutter/material.dart';
 import 'package:iconsax/iconsax.dart';
 import '../../../../core/app_colors.dart';
+import '../../../../api_services/user_service.dart';
+import '../../../../api_services/post_services.dart';
+import '../../../../models/feed_post.dart';
 
-class UserAllReelsTab extends StatelessWidget {
-  const UserAllReelsTab({super.key});
+class UserAllReelsTab extends StatefulWidget {
+  final String? username;
+  final bool isOwnProfile;
 
-  static const List<_ReelData> _reels = [
-    _ReelData(
-      thumbnail: 'https://picsum.photos/seed/r1/400/600',
-      views: '12.4K',
-      duration: '0:32',
-    ),
-    _ReelData(
-      thumbnail: 'https://picsum.photos/seed/r2/400/600',
-      views: '8.1K',
-      duration: '1:04',
-    ),
-    _ReelData(
-      thumbnail: 'https://picsum.photos/seed/r3/400/600',
-      views: '3.7K',
-      duration: '0:18',
-    ),
-    _ReelData(
-      thumbnail: 'https://picsum.photos/seed/r4/400/600',
-      views: '21.9K',
-      duration: '0:45',
-    ),
-    _ReelData(
-      thumbnail: 'https://picsum.photos/seed/r5/400/600',
-      views: '5.2K',
-      duration: '1:12',
-    ),
-    _ReelData(
-      thumbnail: 'https://picsum.photos/seed/r6/400/600',
-      views: '9.8K',
-      duration: '0:27',
-    ),
-    _ReelData(
-      thumbnail: 'https://picsum.photos/seed/r7/400/600',
-      views: '1.3K',
-      duration: '0:55',
-    ),
-    _ReelData(
-      thumbnail: 'https://picsum.photos/seed/r8/400/600',
-      views: '44.6K',
-      duration: '0:14',
-    ),
-    _ReelData(
-      thumbnail: 'https://picsum.photos/seed/r9/400/600',
-      views: '7.0K',
-      duration: '1:30',
-    ),
-  ];
+  const UserAllReelsTab({
+    super.key,
+    this.username,
+    this.isOwnProfile = false,
+  });
+
+  @override
+  State<UserAllReelsTab> createState() => _UserAllReelsTabState();
+}
+
+class _UserAllReelsTabState extends State<UserAllReelsTab> {
+  List<PostModel> _reels = [];
+  bool _loading = true;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadReels();
+  }
+
+  Future<void> _loadReels() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+
+    try {
+      final posts = widget.isOwnProfile
+          ? await UserService.getMyPosts(type: 'reels', limit: 50)
+          : await UserService.getUserPosts(widget.username!, type: 'reels', limit: 50);
+
+      if (!mounted) return;
+      setState(() {
+        _reels = posts;
+        _loading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _error = 'Failed to load reels';
+      });
+    }
+  }
+
+  Future<void> _deleteReel(int index) async {
+    final post = _reels[index];
+    try {
+      await PostsService.deletePost(post.id);
+      if (!mounted) return;
+      setState(() {
+        _reels.removeAt(index);
+      });
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Failed to delete reel')),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    if (_loading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (_error != null) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(_error!, style: TextStyle(color: AppColors.mutedText(context))),
+            const SizedBox(height: 12),
+            TextButton(onPressed: _loadReels, child: const Text('Retry')),
+          ],
+        ),
+      );
+    }
+
     if (_reels.isEmpty) {
       return Center(
         child: Column(
@@ -85,27 +120,38 @@ class UserAllReelsTab extends StatelessWidget {
         crossAxisCount: 3,
         crossAxisSpacing: 1.5,
         mainAxisSpacing: 1.5,
-        childAspectRatio: 0.6, // portrait ratio for reels
+        childAspectRatio: 0.6,
       ),
       itemCount: _reels.length,
       itemBuilder: (context, index) {
         final reel = _reels[index];
+        final thumbnailUrl = reel.images.isNotEmpty ? reel.images.first : '';
         return GestureDetector(
           onTap: () => _openReel(context, index),
+          onLongPress: widget.isOwnProfile ? () => _showDeleteDialog(index) : null,
           child: Stack(
             fit: StackFit.expand,
             children: [
-              Image.network(headers: const {"ngrok-skip-browser-warning": "true"}, 
-                reel.thumbnail,
-                fit: BoxFit.cover,
-                errorBuilder: (_, __, ___) => Container(
-                  color: AppColors.secondaryBackground(context),
-                  child: Icon(
-                    Icons.broken_image_outlined,
-                    color: AppColors.mutedText(context),
-                  ),
-                ),
-              ),
+              thumbnailUrl.isNotEmpty
+                  ? Image.network(
+                      headers: const {"ngrok-skip-browser-warning": "true"},
+                      thumbnailUrl,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => Container(
+                        color: AppColors.secondaryBackground(context),
+                        child: Icon(
+                          Icons.broken_image_outlined,
+                          color: AppColors.mutedText(context),
+                        ),
+                      ),
+                    )
+                  : Container(
+                      color: AppColors.secondaryBackground(context),
+                      child: Icon(
+                        Icons.broken_image_outlined,
+                        color: AppColors.mutedText(context),
+                      ),
+                    ),
 
               Positioned(
                 bottom: 0,
@@ -145,7 +191,7 @@ class UserAllReelsTab extends StatelessWidget {
                     ),
                     const SizedBox(width: 2),
                     Text(
-                      reel.views,
+                      '${reel.likes}',
                       style: const TextStyle(
                         color: Colors.white,
                         fontSize: 11,
@@ -156,22 +202,53 @@ class UserAllReelsTab extends StatelessWidget {
                 ),
               ),
 
-              Positioned(
-                bottom: 6,
-                right: 6,
-                child: Text(
-                  reel.duration,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w500,
+              if (widget.isOwnProfile)
+                Positioned(
+                  top: 6,
+                  left: 6,
+                  child: GestureDetector(
+                    onTap: () => _showDeleteDialog(index),
+                    child: Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withOpacity(0.5),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.delete_outline,
+                        color: Colors.white,
+                        size: 16,
+                      ),
+                    ),
                   ),
                 ),
-              ),
             ],
           ),
         );
       },
+    );
+  }
+
+  void _showDeleteDialog(int index) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete Reel'),
+        content: const Text('Are you sure you want to delete this reel?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              _deleteReel(index);
+            },
+            child: const Text('Delete', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
     );
   }
 
@@ -182,6 +259,8 @@ class UserAllReelsTab extends StatelessWidget {
         builder: (_) => _ReelViewer(
           reels: _reels,
           initialIndex: initialIndex,
+          isOwnProfile: widget.isOwnProfile,
+          onDelete: widget.isOwnProfile ? (index) => _deleteReel(index) : null,
         ),
       ),
     );
@@ -189,30 +268,19 @@ class UserAllReelsTab extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Reel data model
-// ─────────────────────────────────────────────────────────────────────────────
-class _ReelData {
-  final String thumbnail;
-  final String views;
-  final String duration;
-
-  const _ReelData({
-    required this.thumbnail,
-    required this.views,
-    required this.duration,
-  });
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
 // Full screen reel viewer — vertical swipe
 // ─────────────────────────────────────────────────────────────────────────────
 class _ReelViewer extends StatefulWidget {
-  final List<_ReelData> reels;
+  final List<PostModel> reels;
   final int initialIndex;
+  final bool isOwnProfile;
+  final Function(int)? onDelete;
 
   const _ReelViewer({
     required this.reels,
     required this.initialIndex,
+    this.isOwnProfile = false,
+    this.onDelete,
   });
 
   @override
@@ -238,6 +306,8 @@ class _ReelViewerState extends State<_ReelViewer> {
 
   @override
   Widget build(BuildContext context) {
+    final bottomPadding = MediaQuery.of(context).padding.bottom + 80;
+    
     return Scaffold(
       backgroundColor: Colors.black,
       body: Stack(
@@ -249,28 +319,39 @@ class _ReelViewerState extends State<_ReelViewer> {
             onPageChanged: (i) => setState(() => _currentIndex = i),
             itemBuilder: (context, index) {
               final reel = widget.reels[index];
+              final thumbnailUrl = reel.images.isNotEmpty ? reel.images.first : '';
               return Stack(
                 fit: StackFit.expand,
                 children: [
-                  Image.network(headers: const {"ngrok-skip-browser-warning": "true"}, 
-                    reel.thumbnail,
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => const ColoredBox(
-                      color: Colors.black,
-                      child: Icon(
-                        Icons.broken_image_outlined,
-                        color: Colors.white24,
-                        size: 48,
-                      ),
-                    ),
-                  ),
+                  thumbnailUrl.isNotEmpty
+                      ? Image.network(
+                          headers: const {"ngrok-skip-browser-warning": "true"},
+                          thumbnailUrl,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => const ColoredBox(
+                            color: Colors.black,
+                            child: Icon(
+                              Icons.broken_image_outlined,
+                              color: Colors.white24,
+                              size: 48,
+                            ),
+                          ),
+                        )
+                      : const ColoredBox(
+                          color: Colors.black,
+                          child: Icon(
+                            Icons.broken_image_outlined,
+                            color: Colors.white24,
+                            size: 48,
+                          ),
+                        ),
 
                   Positioned(
                     bottom: 0,
                     left: 0,
                     right: 0,
                     child: Container(
-                      height: 180,
+                      height: 200,
                       decoration: const BoxDecoration(
                         gradient: LinearGradient(
                           colors: [Colors.transparent, Colors.black87],
@@ -282,33 +363,41 @@ class _ReelViewerState extends State<_ReelViewer> {
                   ),
 
                   Positioned(
-                    bottom: 32,
+                    bottom: bottomPadding - 40,
                     left: 16,
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        Text(
+                          reel.user,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          reel.caption,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 13,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
                         Row(
                           children: [
                             const Icon(Icons.play_arrow_rounded,
                                 color: Colors.white, size: 16),
                             const SizedBox(width: 4),
                             Text(
-                              reel.views,
+                              '${reel.likes}',
                               style: const TextStyle(
                                 color: Colors.white,
                                 fontSize: 13,
                                 fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            const SizedBox(width: 10),
-                            const Icon(Icons.timer_outlined,
-                                color: Colors.white70, size: 14),
-                            const SizedBox(width: 4),
-                            Text(
-                              reel.duration,
-                              style: const TextStyle(
-                                color: Colors.white70,
-                                fontSize: 13,
                               ),
                             ),
                           ],
@@ -319,17 +408,27 @@ class _ReelViewerState extends State<_ReelViewer> {
 
                   Positioned(
                     right: 12,
-                    bottom: 80,
+                    bottom: bottomPadding - 40,
                     child: Column(
                       children: [
                         _ReelAction(
-                            icon: Iconsax.heart, label: '248'),
+                            icon: Iconsax.heart, label: '${reel.likes}'),
                         const SizedBox(height: 20),
                         _ReelAction(
-                            icon: Iconsax.message, label: '34'),
+                            icon: Iconsax.message, label: '${reel.comments}'),
                         const SizedBox(height: 20),
                         _ReelAction(
-                            icon: Iconsax.send_2, label: 'Share'),
+                            icon: Iconsax.share, label: 'Share'),
+                        const SizedBox(height: 20),
+                        if (widget.isOwnProfile && widget.onDelete != null)
+                          GestureDetector(
+                            onTap: () => _showDeleteDialog(index),
+                            child: const Icon(
+                              Icons.delete_outline,
+                              color: Colors.white,
+                              size: 28,
+                            ),
+                          ),
                       ],
                     ),
                   ),
@@ -373,6 +472,30 @@ class _ReelViewerState extends State<_ReelViewer> {
                 ),
               ),
             ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showDeleteDialog(int index) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete Reel'),
+        content: const Text('Are you sure you want to delete this reel?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              widget.onDelete?.call(index);
+              Navigator.pop(context);
+            },
+            child: const Text('Delete', style: TextStyle(color: Colors.red)),
           ),
         ],
       ),

@@ -40,7 +40,11 @@ class SocketService {
   static final StreamController<Map<String, dynamic>> _boxStatusChangedController =
       StreamController<Map<String, dynamic>>.broadcast();
 
+  static final StreamController<void> _connectedController =
+      StreamController<void>.broadcast();
+
   static Stream<Map<String, dynamic>> get onMessage => _messageController.stream;
+  static Stream<void> get onConnected => _connectedController.stream;
   static Stream<Map<String, dynamic>> get onTypingStart => _typingStartController.stream;
   static Stream<Map<String, dynamic>> get onTypingStop => _typingStopController.stream;
   static Stream<Map<String, dynamic>> get onVoiceMessage => _voiceMessageController.stream;
@@ -77,7 +81,9 @@ class SocketService {
     );
 
     _socket!
-      ..onConnect((_) {})
+      ..onConnect((_) {
+         _connectedController.add(null);
+      })
       ..onDisconnect((_) {
         Future.delayed(const Duration(seconds: 2), () {
           if (_socket != null && _socket!.connected != true) {

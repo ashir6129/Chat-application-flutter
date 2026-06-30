@@ -254,21 +254,13 @@ class _ProfileActionButtons extends StatelessWidget {
     final isReceiver = profile.boxSenderId == profile.id;
 
     VoidCallback onBoxTap = () {
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (_) => SendBoxScreen(
-            targetUserId: profile.id,
-            username: profile.displayName,
-            avatarUrl: profile.avatarUrl ?? '',
-            distance: profile.location ?? 'Nearby',
-          ),
-        ),
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Box requests are only available for nearby users. Visit the People Nearby screen to send box requests.')),
       );
     };
 
-    String boxLabel = 'Send me a box';
-    IconData boxIcon = Iconsax.box;
+    String boxLabel = 'Nearby Only';
+    IconData boxIcon = Iconsax.location;
 
     if (hasAccepted) {
       boxLabel = 'Box Accepted';

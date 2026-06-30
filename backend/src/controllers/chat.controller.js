@@ -68,6 +68,17 @@ export const removeReaction = asyncHandler(async (req, res) => {
   res.json({ success: true, data: result });
 });
 
+export const pinMessage = asyncHandler(async (req, res) => {
+  const { messageId } = req.params;
+  const result = await chatService.pinMessage(req.user.sub, req.params.id, messageId);
+  res.json({ success: true, data: result });
+});
+
+export const unpinMessage = asyncHandler(async (req, res) => {
+  const result = await chatService.unpinMessage(req.user.sub, req.params.id);
+  res.json({ success: true, data: result });
+});
+
 export const sendMessage = asyncHandler(async (req, res) => {
   const error = chatValidator.validateSendMessage(req.body);
   if (error) throw new AppError(error, 400);

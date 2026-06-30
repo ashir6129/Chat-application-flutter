@@ -29,7 +29,7 @@ try {
       
       // Check if it's a relative path
       if (!serviceAccountPath.startsWith('/')) {
-        const absolutePath = join(__dirname, '..', serviceAccountPath);
+        const absolutePath = join(__dirname, '..', '..', serviceAccountPath);
         serviceAccount = JSON.parse(readFileSync(absolutePath, 'utf8'));
       } else {
         serviceAccount = JSON.parse(readFileSync(serviceAccountPath, 'utf8'));

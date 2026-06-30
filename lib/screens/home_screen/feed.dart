@@ -48,7 +48,7 @@ class FeedState extends State<Feed> {
   String? _currentUserId;
   List<FollowUser> _suggestions = [];
 
-  static const int _suggestionsEveryNPosts = 5;
+  static const int _suggestionsInsertAfterIndex = 2;
 
   @override
   void initState() {
@@ -129,17 +129,14 @@ class FeedState extends State<Feed> {
 
   Widget _buildSuggestionsStrip() {
     if (_suggestions.isEmpty) return const SizedBox.shrink();
-    return Padding(
-      padding: const EdgeInsets.only(top: 20, bottom: 12),
-      child: Column(
-        children: [
-          Divider(color: AppColors.borderLine(context), height: 1, thickness: 0.5),
-          UserSuggestionsStrip(
-            users: _suggestions,
-            onUsersUpdated: (users) => setState(() => _suggestions = users),
-          ),
-        ],
-      ),
+    return Column(
+      children: [
+        UserSuggestionsStrip(
+          users: _suggestions,
+          onUsersUpdated: (users) => setState(() => _suggestions = users),
+        ),
+        Divider(color: AppColors.borderLine(context), height: 1, thickness: 0.5),
+      ],
     );
   }
 
@@ -491,7 +488,7 @@ class FeedState extends State<Feed> {
                   _posts[i] = _posts[i].copyWith(comments: count);
                 }),
               ),
-              if ((i + 1) % _suggestionsEveryNPosts == 0) _buildSuggestionsStrip(),
+              if (i == _suggestionsInsertAfterIndex) _buildSuggestionsStrip(),
             ],
           );
         }),
@@ -697,6 +694,7 @@ class _FeedCard extends StatelessWidget {
               ],
             ),
           ),
+          const SizedBox(height: 14),
           if (post.poll != null)
             FeedPollCard(
               poll: post.poll!,
@@ -706,7 +704,8 @@ class _FeedCard extends StatelessWidget {
           if (post.displayCaption.isNotEmpty)
             FeedCaptionText(
               caption: post.displayCaption,
-              padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
+              hasMedia: post.images.isNotEmpty,
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
             ),
           if (post.images.isEmpty)
             const SizedBox.shrink()
@@ -741,7 +740,23 @@ class _FeedCard extends StatelessWidget {
                     : null,
               ),
             ),
-          if (post.images.isNotEmpty || post.displayCaption.isNotEmpty || post.poll != null)
+          if (post.product != null)
+            FeedProductAttachmentCard(
+              name: post.product!.name,
+              price: post.product!.price,
+              imageUrl: post.product!.imageUrl,
+              currency: post.product!.currency,
+              stock: post.product!.stock,
+              onBuyNow: () {},
+            ),
+          if (post.banner != null)
+            FeedBannerAdCard(
+              title: post.banner!.title,
+              subtitle: post.banner!.subtitle,
+              imageUrl: post.banner!.imageUrl,
+              ctaLabel: post.banner!.ctaLabel,
+            ),
+          if (post.images.isNotEmpty || post.displayCaption.isNotEmpty || post.poll != null || post.product != null)
             PostsStatsWidget(
               initialLikeCount: likeCount,
               commentCount: post.comments,
@@ -769,22 +784,6 @@ class _FeedCard extends StatelessWidget {
                         authorName: post.user,
                         postId: post.id,
                       ),
-            ),
-          if (post.product != null)
-            FeedProductAttachmentCard(
-              name: post.product!.name,
-              price: post.product!.price,
-              imageUrl: post.product!.imageUrl,
-              currency: post.product!.currency,
-              stock: post.product!.stock,
-              onBuyNow: () {},
-            ),
-          if (post.banner != null)
-            FeedBannerAdCard(
-              title: post.banner!.title,
-              subtitle: post.banner!.subtitle,
-              imageUrl: post.banner!.imageUrl,
-              ctaLabel: post.banner!.ctaLabel,
             ),
         ],
       ),

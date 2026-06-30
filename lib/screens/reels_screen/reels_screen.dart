@@ -5,7 +5,7 @@ import 'package:zyntraplus/api_services/follow_service.dart';
 import 'package:zyntraplus/api_services/post_services.dart';
 import 'package:zyntraplus/api_services/user_service.dart';
 import 'package:zyntraplus/models/feed_post.dart';
-import 'package:zyntraplus/screens/reels_screen/new_reel_review_screen.dart';
+import 'package:zyntraplus/new_post_screen.dart';
 import 'package:zyntraplus/screens/user_profile_screen/user_profile_screen.dart';
 import '../../core/media_url_utils.dart';
 import '../../core/offline_cache_service.dart';
@@ -160,7 +160,7 @@ class _ReelsScreenState extends State<ReelsScreen> {
   void _openNewReel() {
     Navigator.push(
       context,
-      MaterialPageRoute(builder: (_) => const NewReelReviewScreen()),
+      MaterialPageRoute(builder: (_) => const SimplePostScreen(mode: PostCreateMode.reel)),
     );
   }
 

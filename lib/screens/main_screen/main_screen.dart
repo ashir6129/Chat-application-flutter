@@ -1,3 +1,5 @@
+import 'dart:async';
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:iconsax/iconsax.dart';
@@ -15,11 +17,16 @@ import '../../core/profile_refresh.dart';
 import '../../core/main_tab_navigation.dart';
 import '../../core/socket_service.dart';
 import '../../core/notification_helper.dart';
+import '../../core/call_service.dart';
 import '../../widgets/common/offline_banner.dart';
 import '../home_screen/home_screen.dart';
 import '../home_screen/home_search_screen.dart';
 import '../message_screen/messages_hub_screen.dart';
 import '../message_screen/switch_chat_sheet.dart';
+
+import '../../core/tab_scroll_to_top.dart';
+import '../../core/home_scroll_notifier.dart';
+import '../../core/call_history_service.dart';
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
@@ -33,6 +40,7 @@ class _MainScreenState extends State<MainScreen> {
   int _unreadNotifCount = 3;
   String _userGreeting = 'there';
   late final ProfileRefreshListener _profileRefreshListener;
+  StreamSubscription<Map<String, dynamic>>? _socketMessageSub;
 
   bool _hasUnreadMessages = false;
   bool _hasUnreadNotifications = false;
@@ -46,9 +54,16 @@ class _MainScreenState extends State<MainScreen> {
     _userGreeting = ProfileMemoryCache.me?.displayName ?? 'there';
     _loadUserGreeting(silent: ProfileMemoryCache.me != null);
     SocketService.connect();
+    // Initialize CallService so it listens to incoming calls globally
+    CallService.instance;
+    // Initialize call history persistence
+    CallHistoryService.instance.init();
+    _socketMessageSub = SocketService.onMessage.listen((_) => _checkUnreadCounts());
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.manual, overlays: SystemUiOverlay.values);
     SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
       statusBarColor: Colors.transparent,
       statusBarIconBrightness: Brightness.light,
+      systemNavigationBarColor: Colors.transparent,
     ));
     _checkUnreadCounts();
   }
@@ -86,11 +101,15 @@ class _MainScreenState extends State<MainScreen> {
   void dispose() {
     MainTabNavigation.unbind();
     ProfileRefresh.unregister(_profileRefreshListener);
+    _socketMessageSub?.cancel();
     super.dispose();
   }
 
   void _onTap(int index) {
-    if (_currentIndex == index) return;
+    if (_currentIndex == index) {
+      TabScrollToTop.trigger(index);
+      return;
+    }
     HapticFeedback.lightImpact();
     setState(() {
       _currentIndex = index;
@@ -128,7 +147,7 @@ class _MainScreenState extends State<MainScreen> {
       child: Scaffold(
         backgroundColor: AppColors.primaryBackground(context),
         appBar: _currentIndex == 0 ? _buildAppBar() : null,
-        extendBody: false,
+        extendBody: true,
         body: Column(
           children: [
             const OfflineBanner(),
@@ -156,17 +175,31 @@ class _MainScreenState extends State<MainScreen> {
 
   PreferredSizeWidget _buildAppBar() {
     final iconColor = AppColors.primaryText(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    return AppBar(
-      backgroundColor: AppColors.primaryBackground(context),
-      elevation: 0,
-      scrolledUnderElevation: 0,
-      toolbarHeight: 72,
-      titleSpacing: 16,
-      title: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
+    return PreferredSize(
+      preferredSize: const Size.fromHeight(72),
+      child: ValueListenableBuilder<double>(
+        valueListenable: HomeScrollNotifier.instance.scrollOffset,
+        builder: (context, offset, _) {
+          final isScrolled = _currentIndex == 0 && offset > 20;
+          final bgColor = isScrolled
+              ? (isDark
+                  ? const Color(0xFF161C24).withValues(alpha: 0.98)
+                  : const Color(0xFFFFFFFF).withValues(alpha: 0.98))
+              : AppColors.primaryBackground(context);
+
+          return AppBar(
+            backgroundColor: bgColor,
+            elevation: isScrolled ? 2 : 0,
+            shadowColor: Colors.black.withValues(alpha: 0.15),
+            scrolledUnderElevation: 0,
+            toolbarHeight: 72,
+            titleSpacing: 16,
+            title: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
           Text(
             'Hey, $_userGreeting 👋',
             style: TextStyle(
@@ -262,36 +295,40 @@ class _MainScreenState extends State<MainScreen> {
         const SizedBox(width: 4),
       ],
     );
+        },
+      ),
+    );
   }
 
   Widget _buildStickyNavBar() {
     final accent = AppColors.buttonColor(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bottomPadding = MediaQuery.of(context).padding.bottom;
+
+    final bgColor = isDark ? const Color(0xFF0D1117) : const Color(0xFFFFFFFF);
 
     return Container(
-      height: 62,
+      height: 64 + bottomPadding,
       decoration: BoxDecoration(
-        color: AppColors.bottomNavBackground(context),
+        color: bgColor,
         border: Border(
           top: BorderSide(
-            color: Colors.white.withValues(alpha: 0.06),
+            color: isDark ? Colors.white.withValues(alpha: 0.10) : Colors.black.withValues(alpha: 0.05),
             width: 0.5,
           ),
         ),
       ),
-      child: SafeArea(
-        top: false,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: [
-              _navItem(0, Iconsax.home_1, Iconsax.home_2, 'Home', accent),
-              _navItem(1, Iconsax.video_play, Iconsax.video_play, 'Reels', accent),
-              _navItem(2, Iconsax.shopping_bag, Iconsax.shopping_bag, 'Shop', accent),
-              _navItem(3, Iconsax.location, Iconsax.location, 'Nearby', accent),
-              _navItem(4, Iconsax.user, Iconsax.user, 'Profile', accent),
-            ],
-          ),
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(8, 4, 8, bottomPadding + 4),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          children: [
+            _navItem(0, Iconsax.home_1, Iconsax.home_2, 'Home', accent),
+            _navItem(1, Iconsax.video_play, Iconsax.video_play, 'Reels', accent),
+            _navItem(2, Iconsax.shopping_bag, Iconsax.shopping_bag, 'Shop', accent),
+            _navItem(3, Iconsax.location, Iconsax.location, 'Nearby', accent),
+            _navItem(4, Iconsax.user, Iconsax.user, 'Profile', accent),
+          ],
         ),
       ),
     );

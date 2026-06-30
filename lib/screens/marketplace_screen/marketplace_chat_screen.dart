@@ -3,6 +3,7 @@ import 'package:iconsax/iconsax.dart';
 import '../../../../core/app_colors.dart';
 import '../../../../widgets/message/chat_theme.dart';
 import '../../../../widgets/message/message_action_sheet.dart';
+import '../../../../core/offline_cache_service.dart';
 import '../message_screen/chat/chat_attach_sheet.dart';
 
 class MarketplaceChatScreen extends StatefulWidget {
@@ -37,6 +38,7 @@ class _MarketplaceChatScreenState extends State<MarketplaceChatScreen> {
 
   // Demo messages
   late List<Map<String, dynamic>> _messages;
+  String? _pinnedMessageId;
 
   @override
   void initState() {
@@ -91,6 +93,7 @@ class _MarketplaceChatScreenState extends State<MarketplaceChatScreen> {
         'status': 'sent',
       },
     ];
+    _pinnedMessageId = OfflineCacheService.getJson('pinned_${widget.chatId}')?.toString();
   }
 
   void _sendMessage() {
@@ -263,6 +266,8 @@ class _MarketplaceChatScreenState extends State<MarketplaceChatScreen> {
             iAmSeller: widget.iAmSeller,
           ),
 
+          if (_pinnedMessageId != null) _buildPinnedBar(AppColors.buttonColor(context)),
+
           // ── Messages ─────────────────────────────────────────────────────
           Expanded(
             child: ListView.builder(
@@ -299,6 +304,13 @@ class _MarketplaceChatScreenState extends State<MarketplaceChatScreen> {
                   isMine: isMine,
                   status: msg['status'],
                   avatarUrl: isMine ? null : widget.avatar,
+                  onPin: () {
+                    setState(() => _pinnedMessageId = msg['id']);
+                    OfflineCacheService.setJson('pinned_${widget.chatId}', msg['id']);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Message pinned'), duration: Duration(seconds: 1)),
+                    );
+                  },
                 );
               },
             ),
@@ -421,6 +433,46 @@ class _MarketplaceChatScreenState extends State<MarketplaceChatScreen> {
                 ],
               ),
             ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPinnedBar(Color accent) {
+    final msg = _messages.firstWhere(
+          (m) => m['id'] == _pinnedMessageId,
+          orElse: () => <String, dynamic>{},
+        );
+    final text = msg['text'] as String? ?? 'Pinned Message';
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      color: ChatTheme.barBackground,
+      child: Row(
+        children: [
+          Container(width: 3, height: 36, color: accent),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Pinned Message', style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600)),
+                Text(
+                  text,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(color: ChatTheme.mutedText, fontSize: 12),
+                ),
+              ],
+            ),
+          ),
+          GestureDetector(
+            onTap: () {
+              OfflineCacheService.remove('pinned_${widget.chatId}');
+              setState(() => _pinnedMessageId = null);
+            },
+            child: const Icon(Icons.close, color: ChatTheme.mutedText, size: 18),
           ),
         ],
       ),
@@ -764,6 +816,7 @@ class _MessageBubble extends StatelessWidget {
   final bool isMine;
   final String? status;
   final String? avatarUrl;
+  final VoidCallback? onPin;
 
   const _MessageBubble({
     required this.text,
@@ -771,6 +824,7 @@ class _MessageBubble extends StatelessWidget {
     required this.isMine,
     this.status,
     this.avatarUrl,
+    this.onPin,
   });
 
   @override
@@ -781,7 +835,7 @@ class _MessageBubble extends StatelessWidget {
         messageText: text,
         isMine: isMine,
         onReply: () {},
-        onPin: () {},
+        onPin: onPin,
       ),
       child: Container(
         constraints: BoxConstraints(

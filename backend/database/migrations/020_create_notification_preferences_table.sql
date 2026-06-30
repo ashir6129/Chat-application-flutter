@@ -1,0 +1,25 @@
+-- Notification preferences table
+CREATE TABLE IF NOT EXISTS notification_preferences (
+  user_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+  push_enabled BOOLEAN DEFAULT true,
+  likes BOOLEAN DEFAULT true,
+  comments BOOLEAN DEFAULT true,
+  comment_likes BOOLEAN DEFAULT true,
+  mentions BOOLEAN DEFAULT true,
+  new_followers BOOLEAN DEFAULT true,
+  follow_requests BOOLEAN DEFAULT true,
+  tags BOOLEAN DEFAULT true,
+  direct_messages BOOLEAN DEFAULT true,
+  group_messages BOOLEAN DEFAULT true,
+  message_requests BOOLEAN DEFAULT true,
+  story_replies BOOLEAN DEFAULT true,
+  story_reactions BOOLEAN DEFAULT true,
+  story_mentions BOOLEAN DEFAULT true,
+  voice_calls BOOLEAN DEFAULT true,
+  video_calls BOOLEAN DEFAULT true,
+  post_shares BOOLEAN DEFAULT false,
+  tips BOOLEAN DEFAULT true,
+  new_post_from_following BOOLEAN DEFAULT false,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);

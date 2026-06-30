@@ -116,7 +116,7 @@ class _FeedImageGridState extends State<FeedImageGrid> {
         child: Row(
           children: [
             Expanded(child: _buildImageCell(context, 0)),
-            const SizedBox(width: 2),
+            const SizedBox(width: 8),
             Expanded(child: _buildImageCell(context, 1)),
           ],
         ),
@@ -129,12 +129,12 @@ class _FeedImageGridState extends State<FeedImageGrid> {
         child: Row(
           children: [
             Expanded(child: _buildImageCell(context, 0)),
-            const SizedBox(width: 2),
+            const SizedBox(width: 8),
             Expanded(
               child: Column(
                 children: [
                   Expanded(child: _buildImageCell(context, 1)),
-                  const SizedBox(height: 2),
+                  const SizedBox(height: 8),
                   Expanded(child: _buildImageCell(context, 2)),
                 ],
               ),
@@ -156,17 +156,17 @@ class _FeedImageGridState extends State<FeedImageGrid> {
             child: Row(
               children: [
                 Expanded(child: _buildImageCell(context, 0)),
-                const SizedBox(width: 2),
+                const SizedBox(width: 8),
                 Expanded(child: _buildImageCell(context, 1)),
               ],
             ),
           ),
-          const SizedBox(height: 2),
+          const SizedBox(height: 8),
           Expanded(
             child: Row(
               children: [
                 Expanded(child: _buildImageCell(context, 2)),
-                const SizedBox(width: 2),
+                const SizedBox(width: 8),
                 Expanded(
                   child: _buildImageCell(
                     context,
