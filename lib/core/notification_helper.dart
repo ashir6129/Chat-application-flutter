@@ -213,6 +213,24 @@ class NotificationHelper {
         _log("FCM Token refreshed: $newToken");
         registerFcmToken();
       });
+
+      // Check and refresh token on startup to ensure it's valid
+      try {
+        final currentToken = await getFcmToken();
+        if (currentToken != null && currentToken.isNotEmpty) {
+          _log("Current FCM Token: $currentToken");
+          // Force token refresh to ensure we have a valid token
+          final refreshedToken = await FirebaseMessaging.instance.getToken();
+          if (refreshedToken != null && refreshedToken != currentToken) {
+            _log("Token was stale, refreshing: $refreshedToken");
+            await registerFcmToken();
+          } else {
+            _log("Token is still valid");
+          }
+        }
+      } catch (e) {
+        _log("Error checking token validity: $e");
+      }
     } catch (e) {
       _log("Firebase initialization bypassed/failed (standard without JSON config): $e");
     }

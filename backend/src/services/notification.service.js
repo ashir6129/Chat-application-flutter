@@ -143,6 +143,24 @@ export async function sendPushNotification(userId, { title, body, data = {} }) {
     return { success: true, messageId: response };
   } catch (err) {
     console.error(`Failed to send push notification to user ${userId}:`, err.message);
+    
+    // If token is invalid/expired, remove it from database
+    if (err.message.includes('registration token') || 
+        err.code === 'messaging/registration-token-not-registered' ||
+        err.message.includes('NotRegistered') ||
+        err.code === 'UNREGISTERED') {
+      console.log(`Invalid FCM token for user ${userId}, removing from database`);
+      try {
+        await query(
+          'UPDATE users SET fcm_token = NULL WHERE id = $1',
+          [userId]
+        );
+        console.log(`Removed invalid FCM token for user ${userId}`);
+      } catch (dbErr) {
+        console.error('Failed to remove invalid token from database:', dbErr.message);
+      }
+    }
+    
     return { success: false, error: err.message };
   }
 }
