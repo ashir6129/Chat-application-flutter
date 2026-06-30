@@ -285,11 +285,13 @@ export async function initSocket(httpServer) {
         // Only update last_seen when user is truly offline (no more active sockets)
         if (!isUserOnline(userId)) {
           await updateLastSeen(userId);
+          // Fetch the updated last_seen from database to ensure accuracy
+          const user = await findUserById(userId);
           const partnerIds = await listConversationPartnerIds(userId);
           const offlinePayload = {
             user_id: userId,
             is_online: false,
-            last_seen_at: new Date().toISOString(),
+            last_seen_at: user?.last_seen_at?.toISOString() || new Date().toISOString(),
           };
           for (const partnerId of partnerIds) {
             ioInstance.to(`user:${partnerId}`).emit('presence:changed', offlinePayload);

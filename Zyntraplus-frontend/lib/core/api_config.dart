@@ -2,7 +2,7 @@ import 'package:flutter/foundation.dart';
 
 /// API base URL for ZyntraPlus backend.
 ///
-/// Production (Railway): https://zyntraplus-1-production.up.railway.app/api/v1
+/// Production (Railway): https://triumphant-bravery-production-4779.up.railway.app/api/v1
 ///
 /// Local backend override:
 ///   flutter run --dart-define=API_BASE_URL=http://localhost:4000/api/v1
@@ -12,7 +12,7 @@ class ApiConfig {
   ApiConfig._();
 
   static const String productionBaseUrl =
-      'https://zyntraplus-1-production.up.railway.app/api/v1';
+      'https://triumphant-bravery-production-4779.up.railway.app/api/v1';
 
   static const String localBaseUrl = 'http://localhost:4000/api/v1';
 

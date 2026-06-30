@@ -1,6 +1,6 @@
 import { io } from 'socket.io-client';
 
-const socket = io('https://profound-friend-implosive.ngrok-free.dev', {
+const socket = io('https://triumphant-bravery-production-4779.up.railway.app', {
   path: '/socket.io',
   transports: ['websocket'],
   extraHeaders: {

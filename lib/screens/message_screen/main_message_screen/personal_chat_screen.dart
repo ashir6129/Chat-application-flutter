@@ -142,6 +142,7 @@ class _PersonalChatScreenState extends State<PersonalChatScreen> {
       final newMessages = messages.map(_mapApiMessage).toList();
       setState(() {
         _messages.addAll(newMessages);
+        _sortMessages(); // Ensure proper ordering after pagination
         _oldestMessageId = newMessages.last.id;
         _loadingMore = false;
       });
@@ -177,6 +178,7 @@ class _PersonalChatScreenState extends State<PersonalChatScreen> {
         if (mounted) {
           setState(() {
             _messages.addAll(cached.map(_mapApiMessage));
+            _sortMessages(); // Ensure proper ordering
             _loading = false;
           });
         }
@@ -225,7 +227,22 @@ class _PersonalChatScreenState extends State<PersonalChatScreen> {
       
       // Mark existing messages as read when opening the chat screen
       if (_conversationId != null && _conversationId!.isNotEmpty) {
-        ChatService.markRead(_conversationId!);
+        try {
+          await ChatService.markRead(_conversationId!);
+          // Optimistically update local state to mark own messages as read
+          if (!mounted) return;
+          setState(() {
+            for (var i = 0; i < _messages.length; i++) {
+              final msg = _messages[i];
+              if (msg.isMine) {
+                _messages[i] = msg.copyWith(receiptStatus: MessageReceiptStatus.read);
+              }
+            }
+          });
+        } catch (e) {
+          // Log error but don't block UI - will retry via socket or next load
+          debugPrint('Failed to mark read: $e');
+        }
       }
 
       if (!mounted) return;
@@ -250,14 +267,23 @@ class _PersonalChatScreenState extends State<PersonalChatScreen> {
     final msg = ChatMessage.fromApi(data);
     if (!mounted) return;
     setState(() {
-      // Always remove any temp message with the same content from current user
-      if (msg.senderId == _currentUserId) {
+      // Replace optimistic message with server-confirmed message by matching temp ID
+      final tempIdx = _messages.indexWhere((m) => m.pending && m.id == msg.id);
+      if (tempIdx != -1) {
+        // Replace the temp message in place to preserve position
+        _messages[tempIdx] = _mapApiMessage(msg);
+      } else if (msg.senderId == _currentUserId) {
+        // Fallback: remove by text if temp ID not found (for voice messages)
         _messages.removeWhere((m) => m.pending && m.text == msg.body);
+        if (!_messages.any((m) => m.id == msg.id)) {
+          _messages.add(_mapApiMessage(msg));
+        }
+      } else {
+        // Other user's message: add if not already present
+        if (_messages.any((m) => m.id == msg.id)) return;
+        _messages.add(_mapApiMessage(msg));
       }
-      // Skip if already in list (by real id)
-      if (_messages.any((m) => m.id == msg.id)) return;
-      // Insert at beginning for reversed ListView (newest at bottom)
-      _messages.insert(0, _mapApiMessage(msg));
+      _sortMessages();
     });
     _scrollToEnd();
     if (msg.senderId != _currentUserId) {
@@ -349,6 +375,7 @@ class _PersonalChatScreenState extends State<PersonalChatScreen> {
           _messages
             ..clear()
             ..addAll(cached.map(_mapApiMessage));
+          _sortMessages(); // Ensure proper ordering
           _loading = false;
         });
         _scrollToEnd();
@@ -362,9 +389,10 @@ class _PersonalChatScreenState extends State<PersonalChatScreen> {
       final newMessages = messages.map(_mapApiMessage).toList();
       
       if (loadMore) {
-        // Load more: prepend older messages
+        // Load more: add older messages and re-sort
         setState(() {
           _messages.addAll(newMessages);
+          _sortMessages(); // Ensure proper ordering
           _loading = false;
         });
       } else {
@@ -374,6 +402,7 @@ class _PersonalChatScreenState extends State<PersonalChatScreen> {
             _messages
               ..clear()
               ..addAll(newMessages);
+            _sortMessages(); // Ensure proper ordering
             _loading = false;
           });
           _scrollToEnd();
@@ -411,11 +440,24 @@ class _PersonalChatScreenState extends State<PersonalChatScreen> {
       text: msg.body,
       isMine: msg.senderId == _currentUserId,
       time: _formatTime(msg.createdAt),
+      timestamp: msg.createdAt, // Use actual server timestamp for sorting
       receiptStatus: receiptStatus,
       isVoice: msg.isVoice,
       voiceAudioUrl: voiceUrl,
       voiceDuration: voiceDuration,
     );
+  }
+
+  void _sortMessages() {
+    // Sort messages by timestamp (oldest first for reversed ListView)
+    // Since ListView is reversed, oldest at index 0 = at bottom of screen
+    // Use message ID as secondary sort key for timestamp ties
+    _messages.sort((a, b) {
+      final timestampCompare = a.timestamp.compareTo(b.timestamp);
+      if (timestampCompare != 0) return timestampCompare;
+      // If timestamps are equal, sort by ID to maintain stable order
+      return a.id.compareTo(b.id);
+    });
   }
 
   String _formatTime(DateTime dt) {
@@ -447,11 +489,13 @@ class _PersonalChatScreenState extends State<PersonalChatScreen> {
         text: '[Voice message]',
         isMine: true,
         time: _currentTime(),
+        timestamp: DateTime.now(), // Use current time for temp message
         isVoice: true,
         voiceAudioUrl: voiceUrl,
         voiceDuration: duration,
         pending: true,
       ));
+      _sortMessages(); // Ensure proper ordering
     });
     _scrollToEnd();
 
@@ -468,10 +512,18 @@ class _PersonalChatScreenState extends State<PersonalChatScreen> {
       );
       if (!mounted) return;
       setState(() {
-        _messages.removeWhere((m) => m.pending && m.text == msg.body);
-        if (!_messages.any((m) => m.id == msg.id)) {
-          _messages.insert(0, _mapApiMessage(msg));
+        // Replace optimistic message with server-confirmed message by matching temp ID
+        final tempIdx = _messages.indexWhere((m) => m.pending && m.id == tempId);
+        if (tempIdx != -1) {
+          _messages[tempIdx] = _mapApiMessage(msg);
+        } else {
+          // Fallback: remove by text if temp ID not found
+          _messages.removeWhere((m) => m.pending && m.text == msg.body);
+          if (!_messages.any((m) => m.id == msg.id)) {
+            _messages.add(_mapApiMessage(msg));
+          }
         }
+        _sortMessages(); // Ensure proper ordering
       });
       _scrollToEnd();
     } catch (_) {
@@ -508,12 +560,14 @@ class _PersonalChatScreenState extends State<PersonalChatScreen> {
       text: text,
       isMine: true,
       time: _currentTime(),
+      timestamp: DateTime.now(), // Use current time for temp message
       pending: true,
       failed: false,
     );
 
     setState(() {
       _messages.insert(0, tempMsg);
+      _sortMessages(); // Ensure proper ordering
       _replyingTo = null;
     });
     _scrollToEnd();
@@ -526,12 +580,18 @@ class _PersonalChatScreenState extends State<PersonalChatScreen> {
       );
       if (!mounted) return;
       setState(() {
-        // Remove the temp message regardless of whether socket already added the real one
-        _messages.removeWhere((m) => m.id == tempId);
-        // Only add if not already in list (socket may have already delivered it)
-        if (!_messages.any((m) => m.id == sent.id)) {
-          _messages.insert(0, _mapApiMessage(sent));
+        // Replace optimistic message with server-confirmed message by matching temp ID
+        final tempIdx = _messages.indexWhere((m) => m.pending && m.id == tempId);
+        if (tempIdx != -1) {
+          _messages[tempIdx] = _mapApiMessage(sent);
+        } else {
+          // Fallback: remove temp message and add server-confirmed
+          _messages.removeWhere((m) => m.id == tempId);
+          if (!_messages.any((m) => m.id == sent.id)) {
+            _messages.add(_mapApiMessage(sent));
+          }
         }
+        _sortMessages(); // Ensure proper ordering
         _sending = false;
       });
       _scrollToEnd();
@@ -581,6 +641,7 @@ class _PersonalChatScreenState extends State<PersonalChatScreen> {
       text: '[Image]',
       isMine: true,
       time: _currentTime(),
+      timestamp: DateTime.now(), // Use current time for temp message
       pending: true,
       failed: false,
       isVoice: false,
@@ -589,6 +650,7 @@ class _PersonalChatScreenState extends State<PersonalChatScreen> {
 
     setState(() {
       _messages.insert(0, tempMsg);
+      _sortMessages(); // Ensure proper ordering
     });
     _scrollToEnd();
 
@@ -602,7 +664,7 @@ class _PersonalChatScreenState extends State<PersonalChatScreen> {
       if (urls.isEmpty) throw Exception('Upload failed');
       
       // Send message with CDN URL
-      await ChatService.sendMessage(
+      final sent = await ChatService.sendMessage(
         _conversationId!,
         '',
         messageType: 'image',
@@ -611,7 +673,18 @@ class _PersonalChatScreenState extends State<PersonalChatScreen> {
       
       if (!mounted) return;
       setState(() {
-        _messages.removeWhere((m) => m.id == tempId);
+        // Replace optimistic message with server-confirmed message by matching temp ID
+        final tempIdx = _messages.indexWhere((m) => m.pending && m.id == tempId);
+        if (tempIdx != -1) {
+          _messages[tempIdx] = _mapApiMessage(sent);
+        } else {
+          // Fallback: remove temp message and add server-confirmed
+          _messages.removeWhere((m) => m.id == tempId);
+          if (!_messages.any((m) => m.id == sent.id)) {
+            _messages.add(_mapApiMessage(sent));
+          }
+        }
+        _sortMessages(); // Ensure proper ordering
       });
     } catch (e) {
       if (!mounted) return;
@@ -1157,6 +1230,7 @@ class _UiMessage {
   final String text;
   final bool isMine;
   final String time;
+  final DateTime timestamp; // Add DateTime for proper sorting
   final MessageReceiptStatus? receiptStatus;
   
   final bool? _pending;
@@ -1178,6 +1252,7 @@ class _UiMessage {
     required this.text,
     required this.isMine,
     required this.time,
+    required this.timestamp,
     this.receiptStatus,
     bool? pending,
     bool? failed,
@@ -1194,6 +1269,7 @@ class _UiMessage {
     String? text,
     bool? isMine,
     String? time,
+    DateTime? timestamp,
     MessageReceiptStatus? receiptStatus,
     bool? pending,
     bool? failed,
@@ -1206,6 +1282,7 @@ class _UiMessage {
       text: text ?? this.text,
       isMine: isMine ?? this.isMine,
       time: time ?? this.time,
+      timestamp: timestamp ?? this.timestamp,
       receiptStatus: receiptStatus ?? this.receiptStatus,
       pending: pending ?? this.pending,
       failed: failed ?? this.failed,

@@ -6,7 +6,7 @@ GOOGLE_SERVER_CLIENT_ID="550799770194-t35c6mptpnh8db2gd1qkr3n1hqv92rto.apps.goog
 
 # Use local backend on Android emulator (10.0.2.2 maps to host localhost)
 # Change to your ngrok URL if testing on a real device with local backend:
-# API_BASE_URL="https://profound-friend-implosive.ngrok-free.dev/api/v1"
+# API_BASE_URL="https://triumphant-bravery-production-4779.up.railway.app/api/v1"
 API_BASE_URL="http://10.0.2.2:4000/api/v1"
 
 echo "🚀 Running ZyntraPlus with Google Auth..."

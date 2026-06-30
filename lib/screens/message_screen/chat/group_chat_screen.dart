@@ -16,6 +16,8 @@ import '../../../core/app_colors.dart';
 import '../../../core/offline_cache_service.dart';
 import 'chat_attach_sheet.dart';
 import 'add_group_member_screen.dart';
+import 'group_info_screen.dart';
+import '../../user_profile_screen/user_profile_screen.dart';
 
 /// Group chat wired to REST + Socket.IO (same flow as direct chat).
 class GroupChatScreen extends StatefulWidget {
@@ -52,6 +54,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
   StreamSubscription<Map<String, dynamic>>? _socketSub;
   StreamSubscription<Map<String, dynamic>>? _typingStartSub;
   StreamSubscription<Map<String, dynamic>>? _typingStopSub;
+  StreamSubscription<Map<String, dynamic>>? _readSub;
   String? _pinnedMessageId;
   final Map<String, String> _typingUsers = {};
 
@@ -97,8 +100,16 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
       _socketSub = SocketService.onMessage.listen(_onSocketMessage);
       _typingStartSub = SocketService.onTypingStart.listen(_onTypingStartEvent);
       _typingStopSub = SocketService.onTypingStop.listen(_onTypingStopEvent);
+      _readSub = SocketService.onMessageRead.listen(_onReadUpdate);
 
-      await ChatService.markRead(widget.groupId);
+      try {
+        await ChatService.markRead(widget.groupId);
+        // Note: Group messages don't have individual read receipts like 1:1 chats
+        // The read status is tracked at the conversation level
+      } catch (e) {
+        // Log error but don't block UI - will retry via socket or next load
+        debugPrint('Failed to mark read: $e');
+      }
       await _loadMessages();
 
       _refreshTimer?.cancel();
@@ -156,6 +167,14 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
     });
   }
 
+  void _onReadUpdate(Map<String, dynamic> data) {
+    if (data['conversation_id']?.toString() != widget.groupId) return;
+    if (data['user_id']?.toString() == _currentUserId) return;
+    if (!mounted) return;
+    // Note: Group messages don't have individual read receipts like 1:1 chats
+    // This is a no-op for group chat
+  }
+
   Future<void> _loadMessages({bool silent = false}) async {
     // Show cached messages immediately for instant feel
     if (!silent && _messages.isEmpty) {
@@ -198,6 +217,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
       id: msg.id,
       text: msg.body,
       isMine: isMine,
+      senderId: msg.senderId,
       senderName: senderName,
       isAdmin: member?.isAdmin ?? false,
       avatarUrl: widget.isAnonymous ? null : (msg.senderAvatar ?? member?.avatarUrl),
@@ -237,6 +257,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
       id: 'temp_${DateTime.now().millisecondsSinceEpoch}',
       text: text,
       isMine: true,
+      senderId: _currentUserId!,
       senderName: 'You',
       time: _formatTime(DateTime.now()),
       pending: true,
@@ -315,6 +336,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
     _socketSub?.cancel();
     _typingStartSub?.cancel();
     _typingStopSub?.cancel();
+    _readSub?.cancel();
     _input.removeListener(_onInputChanged);
     SocketService.leaveConversation(widget.groupId);
     _input.dispose();
@@ -342,35 +364,50 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
           icon: const Icon(Iconsax.arrow_left, color: Colors.white),
           onPressed: () => Navigator.pop(context),
         ),
-        title: Row(
-          children: [
-            _groupAvatar(),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    widget.name,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
-                    ),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  Text(
-                    subtitle,
-                    style: TextStyle(
-                      color: _typingUsers.isNotEmpty ? AppColors.buttonColor(context) : const Color(0xFF8696A0),
-                      fontSize: 11,
-                      fontStyle: _typingUsers.isNotEmpty ? FontStyle.italic : FontStyle.normal,
-                    ),
-                  ),
-                ],
+        title: GestureDetector(
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => GroupInfoScreen(
+                  groupId: widget.groupId,
+                  groupName: widget.name,
+                  groupAvatar: widget.avatar,
+                ),
               ),
-            ),
-          ],
+            );
+          },
+          behavior: HitTestBehavior.opaque,
+          child: Row(
+            children: [
+              _groupAvatar(),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      widget.name,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    Text(
+                      subtitle,
+                      style: TextStyle(
+                        color: _typingUsers.isNotEmpty ? AppColors.buttonColor(context) : const Color(0xFF8696A0),
+                        fontSize: 11,
+                        fontStyle: _typingUsers.isNotEmpty ? FontStyle.italic : FontStyle.normal,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
         actions: [
           IconButton(
@@ -513,19 +550,35 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
 
   Widget _senderAvatar(_UiGroupMessage msg) {
     final url = msg.avatarUrl;
-    if (url != null && url.isNotEmpty) {
-      return CircleAvatar(
-        radius: 16,
-        backgroundImage: appCachedImageProvider(url),
-      );
+    final avatarWidget = url != null && url.isNotEmpty
+        ? CircleAvatar(
+            radius: 16,
+            backgroundImage: appCachedImageProvider(url),
+          )
+        : CircleAvatar(
+            radius: 16,
+            backgroundColor: const Color(0xFFFF453A),
+            child: Text(
+              msg.senderName.isNotEmpty ? msg.senderName[0].toUpperCase() : '?',
+              style: const TextStyle(color: Colors.white, fontSize: 12),
+            ),
+          );
+
+    // Don't make avatar tappable for own messages or anonymous mode
+    if (msg.isMine || widget.isAnonymous) {
+      return avatarWidget;
     }
-    return CircleAvatar(
-      radius: 16,
-      backgroundColor: const Color(0xFFFF453A),
-      child: Text(
-        msg.senderName.isNotEmpty ? msg.senderName[0].toUpperCase() : '?',
-        style: const TextStyle(color: Colors.white, fontSize: 12),
-      ),
+
+    return GestureDetector(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => UserProfileScreen(userId: msg.senderId),
+          ),
+        );
+      },
+      child: avatarWidget,
     );
   }
 
@@ -675,6 +728,16 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                 ),
                 onTap: () {
                   Navigator.pop(ctx);
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => GroupInfoScreen(
+                        groupId: widget.groupId,
+                        groupName: widget.name,
+                        groupAvatar: widget.avatar,
+                      ),
+                    ),
+                  );
                 },
               ),
               const SizedBox(height: 8),
@@ -690,6 +753,7 @@ class _UiGroupMessage {
   final String id;
   final String text;
   final bool isMine;
+  final String senderId;
   final String senderName;
   final bool isAdmin;
   final String? avatarUrl;
@@ -700,6 +764,7 @@ class _UiGroupMessage {
     required this.id,
     required this.text,
     required this.isMine,
+    required this.senderId,
     required this.senderName,
     this.isAdmin = false,
     this.avatarUrl,
