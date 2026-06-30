@@ -49,6 +49,7 @@ class _ConversationsListViewState extends State<ConversationsListView> {
   StreamSubscription<Map<String, dynamic>>? _presenceSub;
   StreamSubscription<Map<String, dynamic>>? _conversationUpdatedSub;
   StreamSubscription<Map<String, dynamic>>? _messageSub;
+  StreamSubscription<Map<String, dynamic>>? _messageReadSub;
 
   @override
   void initState() {
@@ -60,6 +61,7 @@ class _ConversationsListViewState extends State<ConversationsListView> {
     _conversationUpdatedSub =
         SocketService.onConversationUpdated.listen(_onConversationUpdated);
     _messageSub = SocketService.onMessage.listen((_) => _load(silent: true));
+    _messageReadSub = SocketService.onMessageRead.listen((_) => _load(silent: true));
   }
 
   @override
@@ -67,6 +69,7 @@ class _ConversationsListViewState extends State<ConversationsListView> {
     _presenceSub?.cancel();
     _conversationUpdatedSub?.cancel();
     _messageSub?.cancel();
+    _messageReadSub?.cancel();
     super.dispose();
   }
 
@@ -1146,6 +1149,21 @@ class _ConversationsListViewState extends State<ConversationsListView> {
 
     final pinnedItems = items.where((c) => pinnedIds.contains(c.id)).toList();
     final recentItems = items.where((c) => !pinnedIds.contains(c.id)).toList();
+
+    // Sort items by lastMessageAt descending
+    pinnedItems.sort((a, b) {
+      if (a.lastMessageAt == null && b.lastMessageAt == null) return 0;
+      if (a.lastMessageAt == null) return 1;
+      if (b.lastMessageAt == null) return -1;
+      return b.lastMessageAt!.compareTo(a.lastMessageAt!);
+    });
+
+    recentItems.sort((a, b) {
+      if (a.lastMessageAt == null && b.lastMessageAt == null) return 0;
+      if (a.lastMessageAt == null) return 1;
+      if (b.lastMessageAt == null) return -1;
+      return b.lastMessageAt!.compareTo(a.lastMessageAt!);
+    });
 
     return RefreshIndicator(
       onRefresh: () => _load(silent: _conversations.isNotEmpty),

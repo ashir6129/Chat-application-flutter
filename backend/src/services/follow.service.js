@@ -25,6 +25,17 @@ export async function follow(userId, targetUserId) {
   await invalidateUserFeedCache(userId);
   await invalidateUserSuggestions(userId);
 
+  // Check if they now mutually follow each other
+  const targetFollowingUs = await isFollowing(targetUserId, userId);
+  if (targetFollowingUs) {
+    const { getOrCreateDirectConversation } = await import('./chat.service.js');
+    try {
+      await getOrCreateDirectConversation(userId, targetUserId);
+    } catch (err) {
+      console.error('Failed to auto-create direct conversation on mutual follow:', err.message);
+    }
+  }
+
   // Send push notification asynchronously
   findUserById(userId).then((follower) => {
     if (follower) {

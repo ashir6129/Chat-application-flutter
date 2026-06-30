@@ -44,6 +44,8 @@ class NotificationHelper {
   /// Global state to suppress notifications for the currently active chat
   static String? activeConversationId;
 
+  static final Set<String> _shownNotificationIds = {};
+
   static final FlutterLocalNotificationsPlugin _localNotifications =
       FlutterLocalNotificationsPlugin();
 
@@ -56,6 +58,94 @@ class NotificationHelper {
     enableVibration: true,
     showBadge: true,
   );
+
+  static void showMessageNotification({
+    required String messageId,
+    required String conversationId,
+    required String senderId,
+    required String title,
+    required String body,
+    required String type,
+  }) {
+    if (messageId.isNotEmpty) {
+      if (_shownNotificationIds.contains(messageId)) {
+        _log("Notification for message $messageId already shown. Skipping.");
+        return;
+      }
+      _shownNotificationIds.add(messageId);
+      if (_shownNotificationIds.length > 100) {
+        _shownNotificationIds.remove(_shownNotificationIds.first);
+      }
+    }
+
+    _log("Checking active conversation: activeConversationId=$activeConversationId, targetId=$conversationId");
+    if (activeConversationId != null && conversationId == activeConversationId) {
+      _log("Suppressing notification because chat is active");
+      return;
+    }
+
+    _log("Showing notification: $title - $body (ID: $messageId)");
+
+    try {
+      _localNotifications.show(
+        messageId.hashCode,
+        title,
+        body,
+        NotificationDetails(
+          android: AndroidNotificationDetails(
+            _channel.id,
+            _channel.name,
+            channelDescription: _channel.description,
+            icon: '@mipmap/ic_launcher',
+            importance: Importance.high,
+            priority: Priority.high,
+            playSound: true,
+            enableVibration: true,
+            showWhen: true,
+            category: AndroidNotificationCategory.message,
+            styleInformation: BigTextStyleInformation(
+              body,
+              contentTitle: title,
+              htmlFormatBigText: true,
+              htmlFormatTitle: true,
+            ),
+            ledColor: const Color(0xFF7C3AED),
+            ledOnMs: 1000,
+            ledOffMs: 1000,
+            ticker: title,
+          ),
+        ),
+        payload: {
+          'type': type,
+          'conversation_id': conversationId,
+          'message_id': messageId,
+          'sender_id': senderId,
+        }.toString(),
+      );
+    } catch (e) {
+      _log("Failed to show local notification: $e");
+    }
+
+    try {
+      InAppNotification.show(
+        title: title,
+        body: body,
+        onTap: () {
+          handleNotificationRouting(
+            type: type,
+            data: {
+              'type': type,
+              'conversation_id': conversationId,
+              'message_id': messageId,
+              'sender_id': senderId,
+            },
+          );
+        },
+      );
+    } catch (e) {
+      _log("Failed to show in-app banner: $e");
+    }
+  }
 
   static Future<void> init() async {
     if (_isInitialized) return;
@@ -134,31 +224,37 @@ class NotificationHelper {
         _log("Message data: ${message.data}");
         
         RemoteNotification? notification = message.notification;
-        AndroidNotification? android = message.notification?.android;
-
         if (notification != null) {
           final type = message.data['type'] as String?;
           
-          // Only suppress chat/message notifications when the conversation is active
           if (type == 'message' || type == 'chat_message' || type == 'group_message' ||
               type == 'message_voice' || type == 'message_photo' || type == 'message_video' ||
               type == 'message_reel' || type == 'message_mention' || type == 'message_reply' ||
               type == 'message_reaction') {
             final targetId = message.data['conversation_id']?.toString() ?? message.data['chat_id']?.toString();
-            _log("Checking active conversation: activeConversationId=$activeConversationId, targetId=$targetId");
-            if (activeConversationId != null && targetId == activeConversationId) {
-               _log("Suppressing notification because chat is active");
-               return;
+            final msgId = message.data['message_id']?.toString() ?? '';
+            final senderId = message.data['sender_id']?.toString() ?? '';
+            
+            if (targetId != null) {
+              showMessageNotification(
+                messageId: msgId,
+                conversationId: targetId,
+                senderId: senderId,
+                title: notification.title ?? 'New Message',
+                body: notification.body ?? '',
+                type: type ?? 'message',
+              );
+              return;
             }
           }
           
-          // Always show local notification for foreground messages
-          _log("Showing local notification for foreground message");
+          // Always show local notification for non-chat foreground messages
+          _log("Showing local notification for generic foreground message");
           _localNotifications.show(
-            id: notification.hashCode,
-            title: notification.title,
-            body: notification.body,
-            notificationDetails: NotificationDetails(
+            notification.hashCode,
+            notification.title,
+            notification.body,
+            NotificationDetails(
               android: AndroidNotificationDetails(
                 _channel.id,
                 _channel.name,
@@ -169,23 +265,12 @@ class NotificationHelper {
                 playSound: true,
                 enableVibration: true,
                 showWhen: true,
-                category: AndroidNotificationCategory.message,
-                styleInformation: BigTextStyleInformation(
-                  notification.body ?? '',
-                  contentTitle: notification.title,
-                  htmlFormatBigText: true,
-                  htmlFormatTitle: true,
-                ),
-                ledColor: const Color(0xFF7C3AED),
-                ledOnMs: 1000,
-                ledOffMs: 1000,
-                ticker: notification.title,
               ),
             ),
             payload: message.data.toString(),
           );
           
-          // Also show in-app banner
+          // Also show in-app banner for non-chat notifications
           try {
             InAppNotification.show(
               title: notification.title ?? 'Notification',

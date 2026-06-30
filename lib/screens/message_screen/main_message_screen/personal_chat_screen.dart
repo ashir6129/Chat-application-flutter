@@ -49,7 +49,7 @@ class PersonalChatScreen extends StatefulWidget {
   State<PersonalChatScreen> createState() => _PersonalChatScreenState();
 }
 
-class _PersonalChatScreenState extends State<PersonalChatScreen> {
+class _PersonalChatScreenState extends State<PersonalChatScreen> with WidgetsBindingObserver {
   final TextEditingController _inputController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
 
@@ -81,6 +81,7 @@ class _PersonalChatScreenState extends State<PersonalChatScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _conversationId = widget.conversationId;
     _peerUserId = widget.userId;
     _peerOnline = widget.isOnline;
@@ -267,8 +268,12 @@ class _PersonalChatScreenState extends State<PersonalChatScreen> {
     final msg = ChatMessage.fromApi(data);
     if (!mounted) return;
     setState(() {
-      // Replace optimistic message with server-confirmed message by matching temp ID
-      final tempIdx = _messages.indexWhere((m) => m.pending && m.id == msg.id);
+      // Match by temp_id in metadata first, then fallback to database id
+      final clientTempId = msg.metadata['temp_id']?.toString() ?? '';
+      final tempIdx = _messages.indexWhere((m) =>
+          m.pending &&
+          (m.id == msg.id || (clientTempId.isNotEmpty && m.id == clientTempId)));
+
       if (tempIdx != -1) {
         // Replace the temp message in place to preserve position
         _messages[tempIdx] = _mapApiMessage(msg);
@@ -396,20 +401,37 @@ class _PersonalChatScreenState extends State<PersonalChatScreen> {
           _loading = false;
         });
       } else {
-        // Initial load: only update if we have no messages or if cache was empty
-        if (_messages.isEmpty) {
-          setState(() {
-            _messages
-              ..clear()
-              ..addAll(newMessages);
-            _sortMessages(); // Ensure proper ordering
-            _loading = false;
-          });
-          _scrollToEnd();
-        } else {
-          // We already have messages from cache/socket, don't clear them
-          setState(() => _loading = false);
-        }
+        // Initial load or update from cache/socket
+        setState(() {
+          final pending = _messages.where((m) => m.pending || m.failed).toList();
+          
+          // Capture socket-delivered messages that arrived in-flight and are not in the new REST response yet
+          final socketMessages = _messages.where((m) =>
+            !m.pending && !m.failed && !newMessages.any((nm) => nm.id == m.id)
+          ).toList();
+
+          _messages
+            ..clear()
+            ..addAll(newMessages);
+          
+          // Re-insert pending/failed messages
+          for (final pm in pending) {
+            if (!_messages.any((m) => m.id == pm.id)) {
+              _messages.add(pm);
+            }
+          }
+
+          // Re-insert socket-delivered messages
+          for (final sm in socketMessages) {
+            if (!_messages.any((m) => m.id == sm.id)) {
+              _messages.add(sm);
+            }
+          }
+
+          _sortMessages(); // Ensure proper ordering
+          _loading = false;
+        });
+        _scrollToEnd();
       }
     } catch (_) {
       if (!silent && mounted && _messages.isEmpty) setState(() => _loading = false);
@@ -508,6 +530,7 @@ class _PersonalChatScreenState extends State<PersonalChatScreen> {
         metadata: {
           'audio_base64': base64Audio,
           'duration_seconds': durationSec,
+          'temp_id': tempId,
         },
       );
       if (!mounted) return;
@@ -572,11 +595,17 @@ class _PersonalChatScreenState extends State<PersonalChatScreen> {
     });
     _scrollToEnd();
 
+    final Map<String, dynamic> metadata = {};
+    if (replyMetadata != null) {
+      metadata.addAll(replyMetadata);
+    }
+    metadata['temp_id'] = tempId;
+
     try {
       final sent = await ChatService.sendMessage(
         _conversationId!,
         text,
-        metadata: replyMetadata,
+        metadata: metadata,
       );
       if (!mounted) return;
       setState(() {
@@ -668,7 +697,10 @@ class _PersonalChatScreenState extends State<PersonalChatScreen> {
         _conversationId!,
         '',
         messageType: 'image',
-        metadata: {'image_url': urls[0]},
+        metadata: {
+          'image_url': urls[0],
+          'temp_id': tempId,
+        },
       );
       
       if (!mounted) return;
@@ -701,7 +733,7 @@ class _PersonalChatScreenState extends State<PersonalChatScreen> {
     Future.delayed(const Duration(milliseconds: 80), () {
       if (_scrollController.hasClients) {
         _scrollController.animateTo(
-          _scrollController.position.maxScrollExtent,
+          0.0,
           duration: const Duration(milliseconds: 250),
           curve: Curves.easeOut,
         );
@@ -798,7 +830,20 @@ class _PersonalChatScreenState extends State<PersonalChatScreen> {
   }
 
   @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      SocketService.connect().then((_) {
+        if (_conversationId != null && _conversationId!.isNotEmpty) {
+          SocketService.joinConversation(_conversationId!);
+        }
+      });
+      _loadPeerPresence();
+    }
+  }
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _refreshTimer?.cancel();
     _typingTimer?.cancel();
     _socketSub?.cancel();
@@ -932,8 +977,8 @@ class _PersonalChatScreenState extends State<PersonalChatScreen> {
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                         itemCount: _messages.length + 1,
                         itemBuilder: (context, i) {
-                          if (i == 0) return _buildTodayPill();
-                          final msg = _messages[i - 1];
+                          if (i == _messages.length) return _buildTodayPill();
+                          final msg = _messages[i];
                           return ChatMessageBubble(
                             messageId: msg.id,
                             text: msg.text,

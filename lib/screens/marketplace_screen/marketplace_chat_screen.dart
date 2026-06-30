@@ -4,6 +4,7 @@ import '../../../../core/app_colors.dart';
 import '../../../../widgets/message/chat_theme.dart';
 import '../../../../widgets/message/message_action_sheet.dart';
 import '../../../../core/offline_cache_service.dart';
+import '../../../../core/notification_helper.dart';
 import '../message_screen/chat/chat_attach_sheet.dart';
 
 class MarketplaceChatScreen extends StatefulWidget {
@@ -43,6 +44,7 @@ class _MarketplaceChatScreenState extends State<MarketplaceChatScreen> {
   @override
   void initState() {
     super.initState();
+    NotificationHelper.activeConversationId = widget.chatId;
     _messages = [
       {
         'id': '1',
@@ -176,6 +178,9 @@ class _MarketplaceChatScreenState extends State<MarketplaceChatScreen> {
 
   @override
   void dispose() {
+    if (NotificationHelper.activeConversationId == widget.chatId) {
+      NotificationHelper.activeConversationId = null;
+    }
     _inputController.dispose();
     _scrollController.dispose();
     super.dispose();

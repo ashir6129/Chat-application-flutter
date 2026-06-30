@@ -35,7 +35,7 @@ class MainScreen extends StatefulWidget {
   State<MainScreen> createState() => _MainScreenState();
 }
 
-class _MainScreenState extends State<MainScreen> {
+class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   int _currentIndex = 0;
   int _unreadNotifCount = 3;
   String _userGreeting = 'there';
@@ -48,6 +48,7 @@ class _MainScreenState extends State<MainScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _profileRefreshListener = ({bool silent = false}) => _loadUserGreeting(silent: silent);
     MainTabNavigation.bind(_onTap);
     ProfileRefresh.register(_profileRefreshListener);
@@ -58,7 +59,10 @@ class _MainScreenState extends State<MainScreen> {
     CallService.instance;
     // Initialize call history persistence
     CallHistoryService.instance.init();
-    _socketMessageSub = SocketService.onMessage.listen((_) => _checkUnreadCounts());
+    _socketMessageSub = SocketService.onMessage.listen((data) {
+      _checkUnreadCounts();
+      _handleSocketMessageNotification(data);
+    });
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.manual, overlays: SystemUiOverlay.values);
     SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
       statusBarColor: Colors.transparent,
@@ -97,8 +101,85 @@ class _MainScreenState extends State<MainScreen> {
     }
   }
 
+  void _handleSocketMessageNotification(Map<String, dynamic> data) async {
+    try {
+      final senderId = data['sender_id']?.toString();
+      final currentUserId = ProfileMemoryCache.me?.id;
+      if (senderId == null || senderId == currentUserId) {
+        return;
+      }
+
+      final conversationId = data['conversation_id']?.toString();
+      if (conversationId == null) return;
+
+      if (NotificationHelper.activeConversationId == conversationId) {
+        return;
+      }
+
+      ChatConversation? conv;
+      final cached = ChatService.getCachedConversations();
+      if (cached != null) {
+        conv = cached.where((c) => c.id == conversationId).firstOrNull;
+      }
+      if (conv == null) {
+        try {
+          conv = await ChatService.getConversation(conversationId);
+        } catch (_) {}
+      }
+
+      String title = 'New Message';
+      if (conv != null) {
+        if (conv.type == 'group') {
+          title = conv.title ?? 'Group Message';
+        } else {
+          title = conv.title ?? 'New Message';
+        }
+      }
+
+      String body = '';
+      final msgType = data['message_type']?.toString() ?? 'text';
+      final msgBody = data['body']?.toString() ?? '';
+      
+      if (msgType == 'text') {
+        body = msgBody;
+      } else if (msgType == 'voice') {
+        body = 'Sent you a voice message';
+      } else if (msgType == 'image') {
+        body = 'Sent you a photo';
+      } else if (msgType == 'video') {
+        body = 'Sent you a video';
+      } else if (msgType == 'reel') {
+        body = 'Sent you a reel';
+      } else {
+        body = 'Sent you a message';
+      }
+
+      final type = conv?.type == 'group' ? 'group_message' : 'message';
+
+      NotificationHelper.showMessageNotification(
+        messageId: data['id']?.toString() ?? '',
+        conversationId: conversationId,
+        senderId: senderId,
+        title: title,
+        body: body,
+        type: type,
+      );
+    } catch (e) {
+      debugPrint("[SocketNotification] Error showing notification: $e");
+    }
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      SocketService.connect();
+      _checkUnreadCounts();
+    }
+  }
+
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     MainTabNavigation.unbind();
     ProfileRefresh.unregister(_profileRefreshListener);
     _socketMessageSub?.cancel();

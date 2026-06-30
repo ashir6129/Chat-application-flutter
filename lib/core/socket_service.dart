@@ -9,6 +9,8 @@ class SocketService {
   SocketService._();
 
   static io.Socket? _socket;
+  static Future<void>? _connectFuture;
+  static String? _currentToken;
   static final StreamController<Map<String, dynamic>> _messageController =
       StreamController<Map<String, dynamic>>.broadcast();
   static final StreamController<Map<String, dynamic>> _typingStartController =
@@ -65,105 +67,128 @@ class SocketService {
 
   static bool get isConnected => _socket?.connected == true;
 
+  static io.Socket? get socket => _socket;
+
   static Future<void> connect() async {
-    if (_socket?.connected == true) return;
-
     final token = await SecureStorageService.getAccessToken();
-    if (token == null || token.isEmpty) return;
+    if (token == null || token.isEmpty) {
+      return;
+    }
 
-    _socket?.dispose();
-    _socket = io.io(
-      ApiConfig.socketOrigin,
-      io.OptionBuilder()
-          .setTransports(['websocket'])
-          .setPath(ApiConfig.socketPath)
-          .disableAutoConnect()
-          .setAuth({'token': token})
-          .setExtraHeaders({'ngrok-skip-browser-warning': 'true'})
-          .build(),
-    );
+    if (_socket != null && _currentToken != token) {
+      disconnect();
+    }
 
-    _socket!
-      ..onConnect((_) {
-         _connectedController.add(null);
-      })
-      ..onDisconnect((_) {
-        Future.delayed(const Duration(seconds: 2), () {
-          if (_socket != null && _socket!.connected != true) {
-            _socket!.connect();
-          }
-        });
-      })
-      ..on('message:new', (data) {
-        if (data is Map) {
-          final d = Map<String, dynamic>.from(data);
-          _messageController.add(d);
-          if (d['message_type'] == 'voice') {
-            _voiceMessageController.add(d);
-          }
-        }
-      })
-      ..on('message:read', (data) {
-        if (data is Map) {
-          _messageReadController.add(Map<String, dynamic>.from(data));
-        }
-      })
-      ..on('message:receipts', (data) {
-        if (data is Map) {
-          _messageReceiptsController.add(Map<String, dynamic>.from(data));
-        }
-      })
-      ..on('presence:changed', (data) {
-        if (data is Map) {
-          _presenceController.add(Map<String, dynamic>.from(data));
-        }
-      })
-      ..on('conversation:updated', (data) {
-        if (data is Map) {
-          _conversationUpdatedController.add(Map<String, dynamic>.from(data));
-        }
-      })
-      ..on('box:received', (data) {
-        if (data is Map) {
-          _boxReceivedController.add(Map<String, dynamic>.from(data));
-        }
-      })
-      ..on('box:status_changed', (data) {
-        if (data is Map) {
-          _boxStatusChangedController.add(Map<String, dynamic>.from(data));
-        }
-      })
-      ..on('typing:start', (data) {
-        if (data is Map) {
-          _typingStartController.add(Map<String, dynamic>.from(data));
-        }
-      })
-      ..on('typing:stop', (data) {
-        if (data is Map) {
-          _typingStopController.add(Map<String, dynamic>.from(data));
-        }
-      })
-      ..on('call:offer', (data) {
-        if (data is Map) _callOfferController.add(Map<String, dynamic>.from(data));
-      })
-      ..on('call:answer', (data) {
-        if (data is Map) _callAnswerController.add(Map<String, dynamic>.from(data));
-      })
-      ..on('call:ice-candidate', (data) {
-        if (data is Map) _callIceCandidateController.add(Map<String, dynamic>.from(data));
-      })
-      ..on('call:end', (data) {
-        if (data is Map) _callEndController.add(Map<String, dynamic>.from(data));
-      })
-      ..on('call:reject', (data) {
-        if (data is Map) _callRejectController.add(Map<String, dynamic>.from(data));
-      })
-      ..on('call:error', (data) {
-        if (data is Map) _callErrorController.add(Map<String, dynamic>.from(data));
-      })
-      ..connect();
+    if (_socket?.connected == true) return;
+    if (_connectFuture != null) return _connectFuture!;
 
-    await _waitUntilConnected();
+    final completer = Completer<void>();
+    _connectFuture = completer.future;
+
+    try {
+      if (_socket != null) {
+        _socket!.connect();
+      } else {
+        _currentToken = token;
+        _socket = io.io(
+          ApiConfig.socketOrigin,
+          io.OptionBuilder()
+              .setTransports(['websocket'])
+              .setPath(ApiConfig.socketPath)
+              .disableAutoConnect()
+              .setAuth({'token': token})
+              .setExtraHeaders({'ngrok-skip-browser-warning': 'true'})
+              .build(),
+        );
+
+        _socket!
+          ..onConnect((_) {
+             _connectedController.add(null);
+          })
+          ..onDisconnect((_) {
+            Future.delayed(const Duration(seconds: 2), () {
+              if (_socket != null && _socket!.connected != true) {
+                _socket!.connect();
+              }
+            });
+          })
+          ..on('message:new', (data) {
+            if (data is Map) {
+              final d = Map<String, dynamic>.from(data);
+              _messageController.add(d);
+              if (d['message_type'] == 'voice') {
+                _voiceMessageController.add(d);
+              }
+            }
+          })
+          ..on('message:read', (data) {
+            if (data is Map) {
+              _messageReadController.add(Map<String, dynamic>.from(data));
+            }
+          })
+          ..on('message:receipts', (data) {
+            if (data is Map) {
+              _messageReceiptsController.add(Map<String, dynamic>.from(data));
+            }
+          })
+          ..on('presence:changed', (data) {
+            if (data is Map) {
+              _presenceController.add(Map<String, dynamic>.from(data));
+            }
+          })
+          ..on('conversation:updated', (data) {
+            if (data is Map) {
+              _conversationUpdatedController.add(Map<String, dynamic>.from(data));
+            }
+          })
+          ..on('box:received', (data) {
+            if (data is Map) {
+              _boxReceivedController.add(Map<String, dynamic>.from(data));
+            }
+          })
+          ..on('box:status_changed', (data) {
+            if (data is Map) {
+              _boxStatusChangedController.add(Map<String, dynamic>.from(data));
+            }
+          })
+          ..on('typing:start', (data) {
+            if (data is Map) {
+              _typingStartController.add(Map<String, dynamic>.from(data));
+            }
+          })
+          ..on('typing:stop', (data) {
+            if (data is Map) {
+              _typingStopController.add(Map<String, dynamic>.from(data));
+            }
+          })
+          ..on('call:offer', (data) {
+            if (data is Map) _callOfferController.add(Map<String, dynamic>.from(data));
+          })
+          ..on('call:answer', (data) {
+            if (data is Map) _callAnswerController.add(Map<String, dynamic>.from(data));
+          })
+          ..on('call:ice-candidate', (data) {
+            if (data is Map) _callIceCandidateController.add(Map<String, dynamic>.from(data));
+          })
+          ..on('call:end', (data) {
+            if (data is Map) _callEndController.add(Map<String, dynamic>.from(data));
+          })
+          ..on('call:reject', (data) {
+            if (data is Map) _callRejectController.add(Map<String, dynamic>.from(data));
+          })
+          ..on('call:error', (data) {
+            if (data is Map) _callErrorController.add(Map<String, dynamic>.from(data));
+          })
+          ..connect();
+      }
+
+      await _waitUntilConnected();
+      completer.complete();
+    } catch (e) {
+      completer.completeError(e);
+    } finally {
+      _connectFuture = null;
+    }
   }
 
   static Future<void> _waitUntilConnected() async {

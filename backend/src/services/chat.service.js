@@ -180,31 +180,26 @@ export async function startDirectConversation(userId, targetUserId) {
   const targetFollowingUs = await isFollowing(targetUserId, userId);
   const isMutualFollow = followingTarget && targetFollowingUs;
 
-  // Check for accepted Box request
-  const { findBoxRequestBetween } = await import('../models/box.model.js');
-  const box = await findBoxRequestBetween(userId, targetUserId);
-  const isBoxAccepted = box && box.status === 'accepted';
-
-  const isAllowed = isMutualFollow || isBoxAccepted;
+  if (!isMutualFollow) {
+    throw new AppError('You can only message users who mutually follow you', 403);
+  }
 
   const existing = await findDirectConversation(userId, targetUserId);
   if (existing) {
-    // If conversation exists but not allowed, check if it's pending
-    const memberStatus = await query(
-      `SELECT status FROM conversation_members 
-       WHERE conversation_id = $1 AND user_id = $2`,
-      [existing.id, userId]
+    // Ensure both member statuses are updated to accepted
+    await query(
+      `UPDATE conversation_members 
+       SET status = 'accepted' 
+       WHERE conversation_id = $1`,
+      [existing.id]
     );
-    const status = memberStatus.rows[0]?.status;
-    
-    if (status === 'pending' && !isAllowed) {
-      throw new AppError('Your message request is pending approval', 403);
-    }
+    await invalidateUserConversations(userId);
+    await invalidateUserConversations(targetUserId);
     
     return getConversation(userId, existing.id);
   }
 
-  // Create conversation with pending status if not mutually following
+  // Create conversation
   const conversation = await createConversation({
     type: 'direct',
     createdBy: userId,
@@ -212,13 +207,12 @@ export async function startDirectConversation(userId, targetUserId) {
     roles: { [userId]: 'member', [targetUserId]: 'member' },
   });
 
-  // Set conversation member status based on follow relationship
-  const memberStatus = isAllowed ? 'accepted' : 'pending';
+  // Set both conversation member statuses to accepted since mutual follow is confirmed
   await query(
     `UPDATE conversation_members 
-     SET status = $1 
-     WHERE conversation_id = $2 AND user_id = $3`,
-    [memberStatus, conversation.id, targetUserId]
+     SET status = 'accepted' 
+     WHERE conversation_id = $1`,
+    [conversation.id]
   );
 
   await invalidateUserConversations(userId);
@@ -283,6 +277,23 @@ export async function getConversationMessages(userId, conversationId, { limit = 
 
 export async function sendMessage(userId, conversationId, body, options = {}) {
   await assertMember(conversationId, userId);
+
+  const { getConversationById, listConversationMembers } = await import('../models/conversation.model.js');
+  const conv = await getConversationById(conversationId, userId);
+  if (!conv) throw new AppError('Conversation not found', 404);
+
+  if (conv.type === 'direct') {
+    const members = await listConversationMembers(conversationId);
+    const peer = members.find((m) => m.user_id !== userId);
+    if (peer) {
+      const { isFollowing } = await import('../models/follow.model.js');
+      const followingTarget = await isFollowing(userId, peer.user_id);
+      const targetFollowingUs = await isFollowing(peer.user_id, userId);
+      if (!followingTarget || !targetFollowingUs) {
+        throw new AppError('You can only message users who mutually follow you', 403);
+      }
+    }
+  }
 
   const trimmed = body?.trim();
   if (!trimmed && !['image', 'voice'].includes(options.messageType)) {
@@ -545,6 +556,7 @@ export async function markRead(userId, conversationId) {
 
   const memberIds = await getMemberIds(conversationId);
   for (const memberId of memberIds) {
+    await invalidateUserConversations(memberId);
     if (memberId !== userId) {
       io?.to(`user:${memberId}`).emit('message:read', readPayload);
       io?.to(`user:${memberId}`).emit('message:receipts', {

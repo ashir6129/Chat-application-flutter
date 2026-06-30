@@ -149,44 +149,23 @@ export async function initSocket(httpServer) {
         return;
       }
       
-      // Check if users can call each other (mutual follow or accepted conversation)
+      // Check if users can call each other (must mutually follow each other)
       try {
         const { isFollowing } = await import('./models/follow.model.js');
-        const { findBoxRequestBetween } = await import('./models/box.model.js');
-        const { findDirectConversation } = await import('./models/conversation.model.js');
-        const { query } = await import('./config/db.js');
         
         const followingTarget = await isFollowing(userId, peerId);
         const targetFollowingUs = await isFollowing(peerId, userId);
         const isMutualFollow = followingTarget && targetFollowingUs;
         
-        const box = await findBoxRequestBetween(userId, peerId);
-        const isBoxAccepted = box && box.status === 'accepted';
-        
-        // Check conversation status if it exists
-        const conversation = await findDirectConversation(userId, peerId);
-        let isConversationAccepted = false;
-        if (conversation) {
-          const memberStatus = await query(
-            `SELECT status FROM conversation_members 
-             WHERE conversation_id = $1 AND user_id = $2`,
-            [conversation.id, peerId]
-          );
-          isConversationAccepted = memberStatus.rows[0]?.status === 'accepted';
-        }
-        
-        const canCall = isMutualFollow || isBoxAccepted || isConversationAccepted;
-        
-        if (!canCall) {
+        if (!isMutualFollow) {
           socket.emit('call:error', {
-            error: 'You can call once your message request is accepted or you mutually follow each other',
+            error: 'You can only call users who mutually follow you',
             peer_id: peerId,
           });
           return;
         }
       } catch (err) {
         console.error('Error checking call permissions:', err.message);
-        // Allow call if check fails (fail open for better UX)
       }
       
       let callerAvatar = null;

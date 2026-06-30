@@ -1,24 +1,29 @@
 const onlineUsers = new Map();
 
 export function setUserOnline(userId, socketId) {
-  if (!onlineUsers.has(userId)) {
-    onlineUsers.set(userId, new Set());
+  if (userId == null) return;
+  const key = String(userId);
+  if (!onlineUsers.has(key)) {
+    onlineUsers.set(key, new Set());
   }
-  onlineUsers.get(userId).add(socketId);
+  onlineUsers.get(key).add(socketId);
 }
 
 export function setUserOffline(userId, socketId) {
-  const sockets = onlineUsers.get(userId);
+  if (userId == null) return;
+  const key = String(userId);
+  const sockets = onlineUsers.get(key);
   if (!sockets) return;
 
   sockets.delete(socketId);
   if (sockets.size === 0) {
-    onlineUsers.delete(userId);
+    onlineUsers.delete(key);
   }
 }
 
 export function isUserOnline(userId) {
-  return onlineUsers.has(userId);
+  if (userId == null) return false;
+  return onlineUsers.has(String(userId));
 }
 
 export function getOnlineUserIds() {

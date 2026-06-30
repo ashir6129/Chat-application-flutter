@@ -14,6 +14,7 @@ import '../../../widgets/message/chat_theme.dart';
 import '../../../widgets/message/message_action_sheet.dart';
 import '../../../core/app_colors.dart';
 import '../../../core/offline_cache_service.dart';
+import '../../../core/notification_helper.dart';
 import 'chat_attach_sheet.dart';
 import 'add_group_member_screen.dart';
 import 'group_info_screen.dart';
@@ -55,6 +56,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
   StreamSubscription<Map<String, dynamic>>? _typingStartSub;
   StreamSubscription<Map<String, dynamic>>? _typingStopSub;
   StreamSubscription<Map<String, dynamic>>? _readSub;
+  StreamSubscription<void>? _connectedSub;
   String? _pinnedMessageId;
   final Map<String, String> _typingUsers = {};
 
@@ -78,6 +80,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
   }
 
   Future<void> _bootstrap() async {
+    NotificationHelper.activeConversationId = widget.groupId;
     setState(() => _loading = true);
     try {
       final me = await UserService.getMe();
@@ -96,11 +99,15 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
       _socketSub?.cancel();
       _typingStartSub?.cancel();
       _typingStopSub?.cancel();
+      _connectedSub?.cancel();
       
       _socketSub = SocketService.onMessage.listen(_onSocketMessage);
       _typingStartSub = SocketService.onTypingStart.listen(_onTypingStartEvent);
       _typingStopSub = SocketService.onTypingStop.listen(_onTypingStopEvent);
       _readSub = SocketService.onMessageRead.listen(_onReadUpdate);
+      _connectedSub = SocketService.onConnected.listen((_) {
+        SocketService.joinConversation(widget.groupId);
+      });
 
       try {
         await ChatService.markRead(widget.groupId);
@@ -132,7 +139,10 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
     setState(() {
       // Remove any matching pending/temp message from current user
       if (msg.senderId == _currentUserId) {
-        _messages.removeWhere((m) => m.pending && m.text == msg.body);
+        final clientTempId = msg.metadata['temp_id']?.toString() ?? '';
+        _messages.removeWhere((m) =>
+            m.pending &&
+            (m.id == msg.id || (clientTempId.isNotEmpty && m.id == clientTempId)));
       }
       // Skip if already in list (by real id)
       if (_messages.any((m) => m.id == msg.id)) return;
@@ -196,10 +206,35 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
     try {
       final messages = await ChatService.getMessages(widget.groupId, limit: 30);
       if (!mounted) return;
+      
+      final newUiMessages = messages.map(_mapApiMessage).toList();
+      
       setState(() {
+        final pending = _messages.where((m) => m.pending).toList();
+        
+        // Capture socket-delivered messages that arrived in-flight and are not in the new REST response yet
+        final socketMessages = _messages.where((m) =>
+          !m.pending && !newUiMessages.any((nm) => nm.id == m.id)
+        ).toList();
+        
         _messages
           ..clear()
-          ..addAll(messages.map(_mapApiMessage));
+          ..addAll(newUiMessages);
+          
+        // Re-insert pending
+        for (final pm in pending) {
+          if (!_messages.any((m) => m.id == pm.id)) {
+            _messages.add(pm);
+          }
+        }
+        
+        // Re-insert socket-delivered
+        for (final sm in socketMessages) {
+          if (!_messages.any((m) => m.id == sm.id)) {
+            _messages.add(sm);
+          }
+        }
+        
         _sortMessages();
         if (!silent) _loading = false;
       });
@@ -287,7 +322,11 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
     _scrollToEnd();
 
     try {
-      final sent = await ChatService.sendMessage(widget.groupId, text);
+      final sent = await ChatService.sendMessage(
+        widget.groupId,
+        text,
+        metadata: {'temp_id': tempMsg.id},
+      );
       if (!mounted) return;
       setState(() {
         // Remove the temp message regardless of whether socket already added the real one
@@ -350,12 +389,16 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
 
   @override
   void dispose() {
+    if (NotificationHelper.activeConversationId == widget.groupId) {
+      NotificationHelper.activeConversationId = null;
+    }
     _refreshTimer?.cancel();
     _typingTimer?.cancel();
     _socketSub?.cancel();
     _typingStartSub?.cancel();
     _typingStopSub?.cancel();
     _readSub?.cancel();
+    _connectedSub?.cancel();
     _input.removeListener(_onInputChanged);
     SocketService.leaveConversation(widget.groupId);
     _input.dispose();
