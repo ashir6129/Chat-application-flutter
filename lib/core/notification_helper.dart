@@ -8,6 +8,7 @@ import 'package:zyntraplus/core/api_methods.dart';
 
 import 'package:zyntraplus/core/in_app_notification.dart';
 import 'package:zyntraplus/core/notification_router.dart';
+import 'package:zyntraplus/core/call_permissions.dart';
 
 void _log(String message) {
   developer.log(message);
@@ -104,8 +105,21 @@ class NotificationHelper {
       _isInitialized = true;
       _log("Firebase initialized successfully for notifications.");
 
-      // Prompt for FCM permissions
+      // Prompt for FCM permissions using unified permission handler
       if (_messaging != null) {
+        // Check notification permission status first
+        final hasPermission = await CallPermissions.hasNotificationPermission();
+        if (!hasPermission) {
+          _log("Notification permission not granted, requesting...");
+          final granted = await CallPermissions.requestNotificationPermission();
+          if (!granted) {
+            _log("Notification permission denied");
+          } else {
+            _log("Notification permission granted");
+          }
+        }
+        
+        // Also request via Firebase for completeness
         NotificationSettings settings = await _messaging!.requestPermission(
           alert: true,
           badge: true,
