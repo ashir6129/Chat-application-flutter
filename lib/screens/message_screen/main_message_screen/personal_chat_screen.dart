@@ -58,6 +58,7 @@ class _PersonalChatScreenState extends State<PersonalChatScreen> {
   bool _sending = false;
   bool _peerOnline = false;
   bool _isPeerTyping = false;
+  bool _loadingMore = false;
   DateTime? _peerLastSeen;
   Timer? _refreshTimer;
   Timer? _typingTimer;
@@ -72,6 +73,7 @@ class _PersonalChatScreenState extends State<PersonalChatScreen> {
   StreamSubscription<void>? _connectedSub;
 
   final List<_UiMessage> _messages = [];
+  String? _oldestMessageId;
 
   @override
   void initState() {
@@ -80,6 +82,7 @@ class _PersonalChatScreenState extends State<PersonalChatScreen> {
     _peerUserId = widget.userId;
     _peerOnline = widget.isOnline;
     _inputController.addListener(_onInputChanged);
+    _scrollController.addListener(_onScroll);
     _bootstrap();
   }
 
@@ -100,6 +103,47 @@ class _PersonalChatScreenState extends State<PersonalChatScreen> {
       SocketService.sendTypingStop(_conversationId!);
       _typingTimer?.cancel();
       _lastTypingStart = null;
+    }
+  }
+
+  void _onScroll() {
+    if (_loadingMore || _messages.isEmpty) return;
+    // Load more when scrolled to near top (for reversed ListView)
+    if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 200) {
+      _loadMoreMessages();
+    }
+  }
+
+  Future<void> _loadMoreMessages() async {
+    if (_loadingMore || _conversationId == null || _conversationId!.isEmpty) return;
+    if (_oldestMessageId == null && _messages.isNotEmpty) {
+      _oldestMessageId = _messages.last.id;
+    }
+    
+    setState(() => _loadingMore = true);
+    
+    try {
+      final messages = await ChatService.getMessages(
+        _conversationId!, 
+        limit: 20,
+        before: _oldestMessageId,
+      );
+      
+      if (messages.isEmpty) {
+        setState(() => _loadingMore = false);
+        return;
+      }
+      
+      if (!mounted) return;
+      
+      final newMessages = messages.map(_mapApiMessage).toList();
+      setState(() {
+        _messages.addAll(newMessages);
+        _oldestMessageId = newMessages.last.id;
+        _loadingMore = false;
+      });
+    } catch (_) {
+      if (mounted) setState(() => _loadingMore = false);
     }
   }
 
@@ -290,7 +334,7 @@ class _PersonalChatScreenState extends State<PersonalChatScreen> {
     } catch (_) {}
   }
 
-  Future<void> _loadMessages({bool silent = false}) async {
+  Future<void> _loadMessages({bool silent = false, bool loadMore = false}) async {
     if (_conversationId == null || _conversationId!.isEmpty) return;
 
     // Show cached messages immediately for instant feel
@@ -314,17 +358,26 @@ class _PersonalChatScreenState extends State<PersonalChatScreen> {
       
       final newMessages = messages.map(_mapApiMessage).toList();
       
-      // If we already have the exact same number of messages and the latest is the same, do nothing to avoid flicker
-      if (_messages.isNotEmpty && newMessages.isNotEmpty && _messages.last.id == newMessages.last.id && _messages.length == newMessages.length) {
-         setState(() => _loading = false);
-      } else {
+      if (loadMore) {
+        // Load more: prepend older messages
         setState(() {
-          _messages
-            ..clear()
-            ..addAll(newMessages);
+          _messages.addAll(newMessages);
           _loading = false;
         });
-        _scrollToEnd();
+      } else {
+        // Initial load: only update if we have no messages or if cache was empty
+        if (_messages.isEmpty) {
+          setState(() {
+            _messages
+              ..clear()
+              ..addAll(newMessages);
+            _loading = false;
+          });
+          _scrollToEnd();
+        } else {
+          // We already have messages from cache/socket, don't clear them
+          setState(() => _loading = false);
+        }
       }
     } catch (_) {
       if (!silent && mounted && _messages.isEmpty) setState(() => _loading = false);
@@ -446,12 +499,14 @@ class _PersonalChatScreenState extends State<PersonalChatScreen> {
       }
     } : null;
 
+    final tempId = 'temp_${DateTime.now().millisecondsSinceEpoch}';
     final tempMsg = _UiMessage(
-      id: 'temp_${DateTime.now().millisecondsSinceEpoch}',
+      id: tempId,
       text: text,
       isMine: true,
       time: _currentTime(),
       pending: true,
+      failed: false,
     );
 
     setState(() {
@@ -469,7 +524,7 @@ class _PersonalChatScreenState extends State<PersonalChatScreen> {
       if (!mounted) return;
       setState(() {
         // Remove the temp message regardless of whether socket already added the real one
-        _messages.removeWhere((m) => m.id == tempMsg.id);
+        _messages.removeWhere((m) => m.id == tempId);
         // Only add if not already in list (socket may have already delivered it)
         if (!_messages.any((m) => m.id == sent.id)) {
           _messages.insert(0, _mapApiMessage(sent));
@@ -479,25 +534,37 @@ class _PersonalChatScreenState extends State<PersonalChatScreen> {
       _scrollToEnd();
     } catch (e) {
       if (!mounted) return;
-      setState(() => _sending = false);
+      setState(() {
+        _sending = false;
+        // Mark temp message as failed for retry option
+        final idx = _messages.indexWhere((m) => m.id == tempId);
+        if (idx != -1) {
+          _messages[idx] = _messages[idx].copyWith(failed: true);
+        }
+      });
       if (!ConnectivityService.isOnline) {
         await OfflineMessageQueue.enqueue(
           conversationId: _conversationId!,
           body: text,
+          metadata: replyMetadata,
         );
-        // It's already in the list as pending
-        return;
+        if (!mounted) return;
+        setState(() {
+          _messages.removeWhere((m) => m.id == tempId);
+        });
       }
-      
-      // Remove temp message if failed completely
-      setState(() {
-        _messages.removeWhere((m) => m.id == tempMsg.id);
-      });
-      _inputController.text = text;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(ChatService.errorMessage(e))),
-      );
     }
+  }
+
+  Future<void> _retryMessage(_UiMessage msg) async {
+    setState(() {
+      // Remove failed message and mark as pending again
+      _messages.removeWhere((m) => m.id == msg.id);
+      _sending = true;
+    });
+    
+    // Re-send the message
+    await _sendMessage(msg.text);
   }
 
   void _scrollToEnd() {
@@ -756,6 +823,7 @@ class _PersonalChatScreenState extends State<PersonalChatScreen> {
                             onSilent: () => _sendSilentMessage(msg.text),
                             onForward: () => _forwardMessage(msg),
                             onEffect: (effect) => _sendMessageWithEffect(msg.text, effect),
+                            onRetry: msg.failed ? () => _retryMessage(msg) : null,
                           );
                         },
                       ),
@@ -1037,6 +1105,9 @@ class _UiMessage {
   final bool? _pending;
   bool get pending => _pending ?? false;
 
+  final bool? _failed;
+  bool get failed => _failed ?? false;
+
   final bool? _isVoice;
   bool get isVoice => _isVoice ?? false;
 
@@ -1052,24 +1123,38 @@ class _UiMessage {
     required this.time,
     this.receiptStatus,
     bool? pending,
+    bool? failed,
     bool? isVoice,
     this.voiceAudioUrl,
     Duration? voiceDuration,
   })  : _pending = pending,
+        _failed = failed,
         _isVoice = isVoice,
         _voiceDuration = voiceDuration;
 
-  _UiMessage copyWith({MessageReceiptStatus? receiptStatus}) {
+  _UiMessage copyWith({
+    String? id,
+    String? text,
+    bool? isMine,
+    String? time,
+    MessageReceiptStatus? receiptStatus,
+    bool? pending,
+    bool? failed,
+    bool? isVoice,
+    String? voiceAudioUrl,
+    Duration? voiceDuration,
+  }) {
     return _UiMessage(
-      id: id,
-      text: text,
-      isMine: isMine,
-      time: time,
+      id: id ?? this.id,
+      text: text ?? this.text,
+      isMine: isMine ?? this.isMine,
+      time: time ?? this.time,
       receiptStatus: receiptStatus ?? this.receiptStatus,
-      pending: pending,
-      isVoice: isVoice,
-      voiceAudioUrl: voiceAudioUrl,
-      voiceDuration: voiceDuration,
+      pending: pending ?? this.pending,
+      failed: failed ?? this.failed,
+      isVoice: isVoice ?? this.isVoice,
+      voiceAudioUrl: voiceAudioUrl ?? this.voiceAudioUrl,
+      voiceDuration: voiceDuration ?? this.voiceDuration,
     );
   }
 }

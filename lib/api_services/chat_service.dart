@@ -249,12 +249,15 @@ class ChatService {
   static Future<List<ChatMessage>> getMessages(
     String conversationId, {
     int limit = 30,
+    String? before,
   }) async {
     final cacheKey = _messagesCacheKey(conversationId);
     try {
-      final data = await ApiMethods.authorizedGet(
-        'conversations/$conversationId/messages?limit=$limit',
-      );
+      var url = 'conversations/$conversationId/messages?limit=$limit';
+      if (before != null) {
+        url += '&before=$before';
+      }
+      final data = await ApiMethods.authorizedGet(url);
       final messages = data['data']?['messages'] as List<dynamic>? ?? [];
       await OfflineCacheService.setJson(cacheKey, messages);
       return messages
