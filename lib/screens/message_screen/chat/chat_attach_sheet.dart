@@ -1,17 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:iconsax/iconsax.dart';
+import 'package:image_picker/image_picker.dart';
 import '../../../core/app_colors.dart';
 
-void showChatAttachSheet(BuildContext context) {
+void showChatAttachSheet(BuildContext context, {Function(String)? onImageSelected}) {
   showModalBottomSheet(
     context: context,
     backgroundColor: Colors.transparent,
-    builder: (_) => const _ChatAttachSheet(),
+    builder: (_) => _ChatAttachSheet(onImageSelected: onImageSelected),
   );
 }
 
 class _ChatAttachSheet extends StatelessWidget {
-  const _ChatAttachSheet();
+  final Function(String)? onImageSelected;
+  const _ChatAttachSheet({this.onImageSelected});
 
   static const _items = [
     _AttachItem(Iconsax.gallery, 'Photos', Color(0xFF43A047)),
@@ -23,6 +25,19 @@ class _ChatAttachSheet extends StatelessWidget {
     _AttachItem(Iconsax.gift, 'Gift', Color(0xFFFF6584)),
     _AttachItem(Iconsax.microphone_2, 'Audio', Color(0xFFFF5722)),
   ];
+
+  Future<void> _handleImageTap(BuildContext context, bool fromCamera) async {
+    final picker = ImagePicker();
+    final XFile? image = await picker.pickImage(
+      source: fromCamera ? ImageSource.camera : ImageSource.gallery,
+      imageQuality: 85,
+    );
+    
+    if (image != null && onImageSelected != null) {
+      Navigator.pop(context);
+      onImageSelected(image.path);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -53,9 +68,19 @@ class _ChatAttachSheet extends StatelessWidget {
               crossAxisSpacing: 16,
               physics: const NeverScrollableScrollPhysics(),
               childAspectRatio: 0.9,
-              children: _items.map((item) {
+              children: _items.asMap().entries.map((entry) {
+                final index = entry.key;
+                final item = entry.value;
                 return GestureDetector(
-                  onTap: () => Navigator.pop(context),
+                  onTap: () async {
+                    if (item.label == 'Photos') {
+                      await _handleImageTap(context, false);
+                    } else if (item.label == 'Camera') {
+                      await _handleImageTap(context, true);
+                    } else {
+                      Navigator.pop(context);
+                    }
+                  },
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [

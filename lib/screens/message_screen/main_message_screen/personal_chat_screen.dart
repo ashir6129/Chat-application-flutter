@@ -1,11 +1,14 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:iconsax/iconsax.dart';
+import 'package:image_picker/image_picker.dart';
 import '../../../../api_services/chat_service.dart';
 import '../../../../api_services/user_service.dart';
+import '../../../../api_services/media_service.dart';
 import '../../../../core/app_colors.dart';
 import '../../../../core/connectivity_service.dart';
 import '../../../../core/chat_memory_cache.dart';
@@ -567,6 +570,60 @@ class _PersonalChatScreenState extends State<PersonalChatScreen> {
     await _sendMessage(msg.text);
   }
 
+  Future<void> _handleImageSelected(String imagePath) async {
+    final tempId = 'temp_${DateTime.now().millisecondsSinceEpoch}';
+    final bytes = await File(imagePath).readAsBytes();
+    
+    // Show image immediately from local cache
+    final localUrl = 'file://$imagePath';
+    final tempMsg = _UiMessage(
+      id: tempId,
+      text: '[Image]',
+      isMine: true,
+      time: _currentTime(),
+      pending: true,
+      failed: false,
+      isVoice: false,
+      voiceAudioUrl: localUrl, // Using voiceAudioUrl field for image URL temporarily
+    );
+
+    setState(() {
+      _messages.insert(0, tempMsg);
+    });
+    _scrollToEnd();
+
+    try {
+      // Upload in background
+      final urls = await MediaService.uploadFiles(
+        bytesList: [bytes],
+        filenames: [imagePath.split('/').last],
+      );
+      
+      if (urls.isEmpty) throw Exception('Upload failed');
+      
+      // Send message with CDN URL
+      await ChatService.sendMessage(
+        _conversationId!,
+        '',
+        messageType: 'image',
+        metadata: {'image_url': urls[0]},
+      );
+      
+      if (!mounted) return;
+      setState(() {
+        _messages.removeWhere((m) => m.id == tempId);
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        final idx = _messages.indexWhere((m) => m.id == tempId);
+        if (idx != -1) {
+          _messages[idx] = _messages[idx].copyWith(failed: true);
+        }
+      });
+    }
+  }
+
   void _scrollToEnd() {
     Future.delayed(const Duration(milliseconds: 80), () {
       if (_scrollController.hasClients) {
@@ -832,7 +889,7 @@ class _PersonalChatScreenState extends State<PersonalChatScreen> {
           ChatInputBar(
             controller: _inputController,
             onSend: _sendMessage,
-            onAttach: () => showChatAttachSheet(context),
+            onAttach: () => showChatAttachSheet(context, onImageSelected: _handleImageSelected),
             onVoiceSend: (bytes, dur) => _sendVoiceMessage(bytes, dur),
           ),
         ],
