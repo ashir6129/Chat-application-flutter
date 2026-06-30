@@ -58,6 +58,11 @@ export const unsendMessage = asyncHandler(async (req, res) => {
 export const addReaction = asyncHandler(async (req, res) => {
   const { messageId } = req.params;
   const { emoji } = req.body;
+  
+  if (!emoji || typeof emoji !== 'string') {
+    throw new AppError('emoji is required', 400);
+  }
+  
   const result = await chatService.addReaction(req.user.sub, req.params.id, messageId, emoji);
   res.json({ success: true, data: result });
 });
