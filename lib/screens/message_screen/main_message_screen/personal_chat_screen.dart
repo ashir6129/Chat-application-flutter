@@ -449,14 +449,14 @@ class _PersonalChatScreenState extends State<PersonalChatScreen> {
   }
 
   void _sortMessages() {
-    // Sort messages by timestamp (oldest first for reversed ListView)
-    // Since ListView is reversed, oldest at index 0 = at bottom of screen
+    // Sort messages by timestamp descending (newest first for reversed ListView)
+    // Since ListView is reversed, newest at index 0 = at bottom of screen
     // Use message ID as secondary sort key for timestamp ties
     _messages.sort((a, b) {
-      final timestampCompare = a.timestamp.compareTo(b.timestamp);
+      final timestampCompare = b.timestamp.compareTo(a.timestamp);
       if (timestampCompare != 0) return timestampCompare;
       // If timestamps are equal, sort by ID to maintain stable order
-      return a.id.compareTo(b.id);
+      return b.id.compareTo(a.id);
     });
   }
 

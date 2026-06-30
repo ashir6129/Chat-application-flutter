@@ -137,6 +137,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
       // Skip if already in list (by real id)
       if (_messages.any((m) => m.id == msg.id)) return;
       _messages.add(_mapApiMessage(msg));
+      _sortMessages();
     });
     _scrollToEnd();
     if (msg.senderId != _currentUserId) {
@@ -185,6 +186,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
           _messages
             ..clear()
             ..addAll(cached.map(_mapApiMessage));
+          _sortMessages();
           _loading = false;
         });
         _scrollToEnd();
@@ -198,6 +200,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
         _messages
           ..clear()
           ..addAll(messages.map(_mapApiMessage));
+        _sortMessages();
         if (!silent) _loading = false;
       });
       _scrollToEnd();
@@ -222,6 +225,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
       isAdmin: member?.isAdmin ?? false,
       avatarUrl: widget.isAnonymous ? null : (msg.senderAvatar ?? member?.avatarUrl),
       time: _formatTime(msg.createdAt),
+      timestamp: msg.createdAt,
     );
   }
 
@@ -242,6 +246,18 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
     return '$h:$m $ampm';
   }
 
+  void _sortMessages() {
+    // Sort messages by timestamp ascending (oldest first for normal ListView)
+    // Since ListView is NOT reversed, oldest at index 0 = at top of screen
+    // Use message ID as secondary sort key for timestamp ties
+    _messages.sort((a, b) {
+      final timestampCompare = a.timestamp.compareTo(b.timestamp);
+      if (timestampCompare != 0) return timestampCompare;
+      // If timestamps are equal, sort by ID to maintain stable order
+      return a.id.compareTo(b.id);
+    });
+  }
+
   int get _memberCount =>
       _conversation?.members.length ?? widget.memberCount;
 
@@ -260,11 +276,13 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
       senderId: _currentUserId!,
       senderName: 'You',
       time: _formatTime(DateTime.now()),
+      timestamp: DateTime.now(),
       pending: true,
     );
 
     setState(() {
       _messages.add(tempMsg);
+      _sortMessages();
     });
     _scrollToEnd();
 
@@ -278,6 +296,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
         if (!_messages.any((m) => m.id == sent.id)) {
           _messages.add(_mapApiMessage(sent));
         }
+        _sortMessages();
         _sending = false;
       });
       _scrollToEnd();
@@ -758,6 +777,7 @@ class _UiGroupMessage {
   final bool isAdmin;
   final String? avatarUrl;
   final String time;
+  final DateTime timestamp;
   final bool pending;
 
   const _UiGroupMessage({
@@ -769,6 +789,7 @@ class _UiGroupMessage {
     this.isAdmin = false,
     this.avatarUrl,
     required this.time,
+    required this.timestamp,
     this.pending = false,
   });
 }
